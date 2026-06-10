@@ -1,0 +1,335 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>詳細3Dモード — 東葛西 日当たりマップ</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/suncalc/1.9.0/suncalc.min.js"></script>
+<script type="importmap">
+{ "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.152.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.152.0/examples/jsm/"
+} }
+</script>
+<style>
+*{box-sizing:border-box;margin:0}
+html,body{height:100%;overflow:hidden;font-family:system-ui,"Yu Gothic",Meiryo,sans-serif}
+#c{position:absolute;inset:0}
+#panel{position:absolute;top:10px;left:10px;z-index:5;width:300px;max-width:calc(100% - 20px);
+  background:rgba(24,28,34,.94);color:#e8edf2;border:1px solid #2b3340;border-radius:10px;
+  padding:14px;max-height:calc(100% - 20px);overflow:auto}
+h1{font-size:14px;margin:0 0 4px}
+.sub{font-size:11px;color:#8d99a8;margin:0 0 10px}
+.back{display:inline-block;margin-bottom:8px;padding:6px 12px;background:#222a33;color:#e8edf2;
+  border:1px solid #2b3340;border-radius:6px;text-decoration:none;font-size:13px}
+.back:hover{background:#2c3640}
+label{display:block;font-size:12px;color:#8d99a8;margin:10px 0 4px}
+input[type=range]{width:100%}
+.val{color:#ffb53d;font-weight:600}
+.readout{display:flex;gap:14px;margin-top:8px;font-variant-numeric:tabular-nums}
+.readout span{font-size:11px;color:#8d99a8;display:block}
+.readout b{font-size:15px}
+#status{margin-top:10px;padding:8px 10px;border-radius:6px;font-size:13px;line-height:1.5;
+  background:#0f141b;border:1px solid #2b3340}
+#status b{font-weight:700}
+.occ{color:#ff9a9a}.dir{color:#7fd4a0}
+.notes{margin-top:10px;font-size:10.5px;color:#7e8a98;line-height:1.6;border-top:1px solid #2b3340;padding-top:8px}
+#errMsg{color:#ff8a8a;font-size:13px;margin-top:10px}
+#bid{font-size:11px;color:#9aa6b4;margin-top:6px;word-break:break-all}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="panel">
+  <a class="back" href="index.html?restore=1">← 地図に戻る</a>
+  <h1>詳細3Dモード</h1>
+  <p class="sub">選択した建物周辺の光と遮蔽を確認</p>
+
+  <label for="time">時刻 <span class="val" id="timeLabel">12:00</span></label>
+  <input type="range" id="time" min="0" max="24" step="0.25" value="12" />
+
+  <div class="readout">
+    <div><span>太陽高度角</span><b id="alt">–</b></div>
+    <div><span>太陽方位角</span><b id="az">–</b></div>
+  </div>
+  <div id="status">読み込み中…</div>
+  <div id="bid"></div>
+  <div id="errMsg"></div>
+  <div class="notes">
+    ※ この詳細3D表示は階数別の日照を厳密に判定するものではなく、周辺建物との位置関係から大まかに確認するためのものです。
+  </div>
+</div>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+/* =========================================================
+   detail.html — Three.js 詳細3Dモード
+   同じ GeoJSON(higashikasai_buildings.geojson)を読み、対象建物と
+   周囲 200m の建物を3Dで表示し、太陽方向の光照/遮蔽を可視化。
+   ========================================================= */
+const HARUMI = { lat: 35.6590, lng: 139.8770 };
+const NEIGHBOR_RADIUS = 200; // m
+const DEG_LAT = 110540;
+const DEG_LNG = 111320 * Math.cos(HARUMI.lat * Math.PI / 180);
+
+const el = id => document.getElementById(id);
+const timeInput = el("time"), timeLabel = el("timeLabel");
+const altOut = el("alt"), azOut = el("az");
+const statusEl = el("status"), errMsg = el("errMsg"), bidEl = el("bid");
+
+// URL パラメータ
+const params = new URLSearchParams(location.search);
+const buildingId = params.get("buildingId") || "";
+const geojsonUrl = params.get("geojson") || "./data/higashikasai_buildings.geojson";
+const initDate = params.get("date") || new Date().toISOString().slice(0,10);
+const initTime = parseFloat(params.get("time") || "12");
+timeInput.value = initTime;
+bidEl.textContent = "建物ID: " + (buildingId || "（未指定）");
+
+function fmtTime(v){ const h=Math.floor(v),m=Math.round((v-h)*60);
+  return String(h).padStart(2,"0")+":"+String(m%60).padStart(2,"0"); }
+timeLabel.textContent = fmtTime(initTime);
+
+// 座標変換: lng/lat → ローカル(m)
+function toLocal(lng, lat, ref) {
+  return [(lng - ref[0]) * DEG_LNG, (lat - ref[1]) * DEG_LAT];
+}
+function dist2d(a, b) {
+  const dx = (a[0]-b[0])*DEG_LNG, dy = (a[1]-b[1])*DEG_LAT;
+  return Math.sqrt(dx*dx+dy*dy);
+}
+function centroid(ring) {
+  let sx=0,sy=0; const n=ring.length-1;
+  for(let i=0;i<n;i++){sx+=ring[i][0];sy+=ring[i][1];}
+  return [sx/n, sy/n];
+}
+
+// 方向名(8方位)
+const DIR_NAMES=["北","北東","東","南東","南","南西","西","北西"];
+function dirName(azDeg){ return DIR_NAMES[Math.round(((azDeg%360+360)%360)/45)%8]; }
+
+// === Three.js セットアップ ===
+const canvas = el("c");
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.setClearColor(0xd4e6f1);
+
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(50, window.innerWidth/window.innerHeight, 1, 2000);
+// 進入前の地図視角(zoom/pitch/bearing)を sessionStorage から読み、初期カメラに反映
+let _entry={bearing:0,pitch:45,zoom:18};
+try{ const st=JSON.parse(sessionStorage.getItem("sunmap")||"{}");
+  console.log("🟢 detail.html 読取 mapViewState:", st);
+  if(st&&typeof st.bearing==="number"){
+    _entry.bearing=st.bearing;
+    _entry.pitch = (st.pitch!=null)?st.pitch:45;
+    _entry.zoom  = (st.zoom!=null)?st.zoom:18;
+  } }catch(e){ console.warn("detail 読取失敗:",e); }
+console.log("🟢 detail 初期カメラ採用値:", _entry);
+(function initCam(){
+  // zoom が大きいほどカメラを近づける（zoom17→240m, 18→150m, 19→95m 目安）
+  const D = Math.max(70, Math.min(600, 240 * Math.pow(2, 17 - _entry.zoom)));
+  // map pitch: 0=真上見下ろし → 高い仰角 / 60=斜め → 低い仰角
+  const elev = Math.max(12, 90 - _entry.pitch) * Math.PI/180;
+  const br = _entry.bearing * Math.PI/180;
+  const horiz = D * Math.cos(elev);
+  camera.position.set(horiz*Math.sin(br), D*Math.sin(elev), horiz*Math.cos(br));
+})();
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.target.set(0, 20, 0);
+controls.enableDamping = true;
+// 主地図(MapLibre)と操作感を合わせる: 左ドラッグ=平行移動 / 右ドラッグ=回転 / ホイール=ズーム
+controls.mouseButtons = {
+  LEFT: THREE.MOUSE.PAN,
+  MIDDLE: THREE.MOUSE.DOLLY,
+  RIGHT: THREE.MOUSE.ROTATE
+};
+
+// 地面
+const ground = new THREE.Mesh(
+  new THREE.PlaneGeometry(600, 600),
+  new THREE.MeshStandardMaterial({ color: 0xe8e0d8 })
+);
+ground.rotation.x = -Math.PI/2;
+ground.receiveShadow = true;
+scene.add(ground);
+
+// 照明
+const ambient = new THREE.AmbientLight(0xffffff, 0.4);
+scene.add(ambient);
+const sunLight = new THREE.DirectionalLight(0xffffff, 1.0);
+sunLight.castShadow = true;
+sunLight.shadow.camera.left = -300;
+sunLight.shadow.camera.right = 300;
+sunLight.shadow.camera.top = 300;
+sunLight.shadow.camera.bottom = -300;
+sunLight.shadow.camera.near = 1;
+sunLight.shadow.camera.far = 800;
+sunLight.shadow.mapSize.set(2048, 2048);
+scene.add(sunLight);
+scene.add(sunLight.target);
+
+// 建物メッシュ作成
+const MAT_TARGET = new THREE.MeshStandardMaterial({ color: 0xff9933, side: THREE.DoubleSide });
+const MAT_NEIGHBOR = new THREE.MeshStandardMaterial({ color: 0x999999, transparent: true, opacity: 0.7, side: THREE.DoubleSide });
+
+function buildMesh(feature, ref, material) {
+  const ring = feature.geometry.coordinates[0];
+  const h = Number(feature.properties.height) || 3;
+  const pts = ring.map(c => toLocal(c[0], c[1], ref));
+  const shape = new THREE.Shape();
+  shape.moveTo(pts[0][0], pts[0][1]);
+  for (let i=1; i<pts.length; i++) shape.lineTo(pts[i][0], pts[i][1]);
+  const geom = new THREE.ExtrudeGeometry(shape, { depth: h, bevelEnabled: false });
+  const mesh = new THREE.Mesh(geom, material);
+  mesh.rotation.x = -Math.PI/2;
+  mesh.castShadow = true;
+  mesh.receiveShadow = true;
+  return mesh;
+}
+
+// === データ読み込み & シーン構築 ===
+let targetFeature = null;
+let neighbors = [];   // { feature, cx, cy } in local meters
+
+async function init() {
+  let fc;
+  try {
+    const r = await fetch(geojsonUrl);
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    fc = await r.json();
+  } catch(e) {
+    errMsg.textContent = "GeoJSON 読み込み失敗: " + e;
+    statusEl.textContent = "データエラー";
+    return;
+  }
+
+  // 対象建物を探す
+  // 安定IDを優先(gml_id)。暫定で index- プレフィックスにも対応。
+  // ※ 将来は安定IDに統一すること
+  if (buildingId.startsWith("index-")) {
+    const idx = parseInt(buildingId.replace("index-",""), 10);
+    targetFeature = fc.features[idx] || null;
+  } else {
+    targetFeature = fc.features.find(f => f.properties.gml_id === buildingId) || null;
+  }
+  if (!targetFeature) {
+    errMsg.textContent = "建物が見つかりません: " + buildingId;
+    statusEl.textContent = "対象建物なし";
+    return;
+  }
+
+  const tgtRing = targetFeature.geometry.coordinates[0];
+  const tgtC = centroid(tgtRing); // [lng, lat]
+  const ref = tgtC; // ローカル座標の原点
+
+  // 対象建物のメッシュ
+  scene.add(buildMesh(targetFeature, ref, MAT_TARGET));
+
+  // 周辺建物（200m以内）
+  for (const f of fc.features) {
+    if (f === targetFeature) continue;
+    const c = centroid(f.geometry.coordinates[0]);
+    const d = dist2d(c, tgtC);
+    if (d > NEIGHBOR_RADIUS) continue;
+    const [lx, ly] = toLocal(c[0], c[1], ref);
+    neighbors.push({ feature: f, cx: lx, cy: ly, height: Number(f.properties.height)||3 });
+    scene.add(buildMesh(f, ref, MAT_NEIGHBOR));
+  }
+
+  const tgtH = Number(targetFeature.properties.height)||3;
+  bidEl.textContent = `建物ID: ${buildingId}　高さ: ${tgtH.toFixed(1)}m　周辺: ${neighbors.length}棟`;
+  updateSun();
+}
+
+// === 太陽位置 & 遮蔽判定 ===
+function getSun() {
+  const [y,mo,d] = initDate.split("-").map(Number);
+  const v = parseFloat(timeInput.value);
+  const hh = Math.floor(v), mi = Math.round((v-hh)*60);
+  const dt = new Date(Date.UTC(y, mo-1, d, hh-9, mi));
+  const p = SunCalc.getPosition(dt, HARUMI.lat, HARUMI.lng);
+  const altDeg = p.altitude * 180 / Math.PI;
+  const sunBearing = (p.azimuth * 180 / Math.PI + 180 + 360) % 360;
+  return { altDeg, sunBearing };
+}
+
+function updateSun() {
+  const sun = getSun();
+  altOut.textContent = sun.altDeg.toFixed(1) + "°";
+  azOut.textContent = sun.sunBearing.toFixed(0) + "°";
+
+  // DirectionalLight の位置を太陽方向にセット
+  const R = 400;
+  const azRad = sun.sunBearing * Math.PI / 180;
+  const altRad = Math.max(0, sun.altDeg) * Math.PI / 180;
+  sunLight.position.set(
+    R * Math.sin(azRad) * Math.cos(altRad),
+    R * Math.sin(altRad),
+    -R * Math.cos(azRad) * Math.cos(altRad)
+  );
+  sunLight.intensity = sun.altDeg > 0 ? 1.0 : 0.05;
+  ambient.intensity = sun.altDeg > 0 ? 0.4 : 0.15;
+
+  if (sun.altDeg <= 0) {
+    statusEl.innerHTML = "太陽は地平線下です。日照判定はできません。";
+    return;
+  }
+  if (!targetFeature) return;
+
+  // 遮蔽判定: 周辺建物が太陽方向にあり、影が対象に届くか
+  const shadowAz = (sun.sunBearing + 180) % 360;
+  const shadowAzRad = shadowAz * Math.PI / 180;
+  const sdx = Math.sin(shadowAzRad), sdy = Math.cos(shadowAzRad);
+  const tanAlt = Math.tan(altRad);
+
+  let occluders = [];
+  for (const nb of neighbors) {
+    const dx = -nb.cx, dy = -nb.cy; // neighbor→target
+    const along = dx*sdx + dy*sdy;
+    const perp = Math.abs(dx*sdy - dy*sdx);
+    const shadowLen = nb.height / tanAlt;
+    if (along > 0 && along < shadowLen && perp < 40) {
+      const azToNb = (Math.atan2(nb.cx, nb.cy) * 180 / Math.PI + 360) % 360;
+      occluders.push({ dir: dirName(azToNb), h: nb.height, dist: Math.sqrt(nb.cx*nb.cx+nb.cy*nb.cy) });
+    }
+  }
+
+  if (occluders.length > 0) {
+    const top = occluders.sort((a,b)=>b.h-a.h)[0];
+    statusEl.innerHTML = `<b class="occ">遮蔽物あり</b>　${top.dir}方向に高さ${top.h.toFixed(0)}mの建物（約${top.dist.toFixed(0)}m先）<br>`
+      + `計${occluders.length}棟が太陽方向に位置しています`;
+  } else {
+    statusEl.innerHTML = `<b class="dir">直射の可能性あり</b>　現在の太陽方向（${dirName(sun.sunBearing)}・高度${sun.altDeg.toFixed(0)}°）に`
+      + `遮蔽となる建物は見当たりません`;
+  }
+}
+
+timeInput.addEventListener("input", () => {
+  timeLabel.textContent = fmtTime(parseFloat(timeInput.value));
+  updateSun();
+});
+
+// リサイズ対応
+window.addEventListener("resize", () => {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+});
+
+// アニメーションループ
+function animate() {
+  requestAnimationFrame(animate);
+  controls.update();
+  renderer.render(scene, camera);
+}
+animate();
+init();
+</script>
+</body>
+</html>

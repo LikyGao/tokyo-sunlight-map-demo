@@ -1,0 +1,1034 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+<title>日当たりマップ (MVP)</title>
+<link href="https://cdnjs.cloudflare.com/ajax/libs/maplibre-gl/4.7.1/maplibre-gl.min.css" rel="stylesheet" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/maplibre-gl/4.7.1/maplibre-gl.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/suncalc/1.9.0/suncalc.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Turf.js/6.5.0/turf.min.js"></script>
+<style>
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;font-family:system-ui,"Yu Gothic",Meiryo,sans-serif;color:#e8edf2}
+  #map{position:absolute;inset:0}
+  #panel{position:absolute;top:10px;left:10px;z-index:5;width:300px;max-width:calc(100% - 20px);
+    background:rgba(24,28,34,.94);border:1px solid #2b3340;border-radius:10px;padding:14px}
+  h1{font-size:14px;margin:0 0 10px}
+  label{display:block;font-size:12px;color:#8d99a8;margin:10px 0 4px}
+  input[type=date]{width:100%;background:#0f141b;border:1px solid #2b3340;color:#e8edf2;border-radius:6px;padding:6px 8px}
+  input[type=range]{width:100%}
+  .val{color:#ffb53d;font-weight:600}
+  .readout{display:flex;gap:14px;margin-top:8px;font-variant-numeric:tabular-nums}
+  .readout span{font-size:11px;color:#8d99a8;display:block}
+  .readout b{font-size:15px}
+  /* デバッグ情報 */
+  #debug{margin-top:12px;padding:8px 10px;background:#0f141b;border:1px solid #2b3340;
+    border-radius:6px;font-size:12px;line-height:1.7;font-variant-numeric:tabular-nums}
+  #debug code{color:#9aa6b4}
+  #debug b{color:#7fd4a0}
+  /* エラー表示（空白で放置しない） */
+  #errBox{display:none;margin-top:10px;padding:10px;border-radius:6px;
+    background:#3a1414;border:1px solid #7a2a2a;color:#ffb4b4;font-size:12px;line-height:1.6}
+  /* === 追加: パネルのスクロール対応 === */
+  #panel{max-height:calc(100% - 20px);overflow:auto}
+  /* === 追加: 明るさ変化のオーバーレイ === */
+  #brightness{position:absolute;inset:0;z-index:2;pointer-events:none;
+    background:transparent;transition:background .35s ease}
+  /* === 追加: ボタン群 === */
+  .btns{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+  .btns button,.date-row button{flex:1;min-width:58px;background:#222a33;color:#e8edf2;border:1px solid #2b3340;
+    border-radius:6px;padding:6px 4px;font-size:12px;cursor:pointer}
+  .btns button:hover,.date-row button:hover{background:#2c3640}
+  .btns button.active,.date-row button.active{background:#ffb53d;color:#1a1205;border-color:#ffb53d;font-weight:700}
+  /* === 追加: トグル === */
+  .toggles{display:flex;flex-wrap:wrap;gap:12px;margin-top:10px}
+  .tg{display:inline-flex;align-items:center;gap:5px;font-size:12px;color:#cdd6e0;margin:0;cursor:pointer}
+  .sunstatus{margin-top:6px;font-size:12px;color:#ffd24a;min-height:1em}
+  /* === 追加: 高さ凡例 === */
+  .legend{margin-top:8px;font-size:11px;color:#8d99a8;display:flex;align-items:center;flex-wrap:wrap}
+  .legend i{display:inline-block;width:12px;height:12px;border-radius:2px;margin:0 4px 0 8px}
+  /* === 追加: 注意書き === */
+  .notes{margin-top:10px;font-size:10.5px;color:#7e8a98;line-height:1.6;border-top:1px solid #2b3340;padding-top:8px}
+  /* === 追加: 日付エラー === */
+  .dateerr{color:#ff8a8a;font-size:12px;margin-top:6px;min-height:1em}
+  /* === 追加: エリア選択 === */
+  select{width:100%;background:#0f141b;border:1px solid #2b3340;color:#e8edf2;
+    border-radius:6px;padding:6px 8px;font-size:13px;margin-bottom:6px;-webkit-appearance:auto}
+  #currentArea{font-size:12px;color:#ffb53d;margin:4px 0 6px;font-weight:600}
+  /* === 追加: 検索 === */
+  .search-row{display:flex;gap:6px;margin-bottom:10px}
+  .search-row input{flex:1;background:#0f141b;border:1px solid #2b3340;color:#e8edf2;
+    border-radius:6px;padding:6px 8px;font-size:13px}
+  .search-row input::placeholder{color:#5d6878}
+  .search-row button{white-space:nowrap;background:#222a33;color:#e8edf2;border:1px solid #2b3340;
+    border-radius:6px;padding:6px 10px;font-size:12px;cursor:pointer}
+  #searchMsg{font-size:11px;color:#9aa6b4;margin:0 0 8px;min-height:1em}
+  /* === 追加: 日付2行 === */
+  .date-row{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+</style>
+</head>
+<body>
+<div id="map"></div>
+<div id="brightness"></div>
+<div id="panel">
+  <h1>日当たりマップ（実データMVP）</h1>
+
+  <label>エリア選択</label>
+  <select id="selKu"><option value="">区を選択</option></select>
+  <select id="selArea"><option value="">地域を選択してください</option></select>
+  <div id="currentArea">地域を選択してください</div>
+  <div id="nameMsg" style="font-size:11px;color:#9aa6b4;margin:0 0 6px"></div>
+
+  <label>住所検索（現在の地域内）</label>
+  <div class="search-row">
+    <input type="text" id="searchInput" placeholder="例：東葛西6-14-10、晴海3-10-1" />
+    <button id="searchBtn">検索</button>
+  </div>
+  <div id="searchMsg"></div>
+
+  <label>日付</label>
+  <div id="dateBtns">
+    <div class="date-row">
+      <button data-mo="3" data-d="20">春分</button>
+      <button data-mo="6" data-d="21">夏至</button>
+      <button data-mo="9" data-d="23">秋分</button>
+      <button data-mo="12" data-d="22">冬至</button>
+    </div>
+    <div class="date-row">
+      <button data-preset="today" class="active">今日</button>
+      <button data-preset="custom">カスタム日付</button>
+    </div>
+  </div>
+  <input type="date" id="date" style="display:none" />
+  <div id="dateErr" class="dateerr"></div>
+
+  <label for="time">時刻 <span class="val" id="timeLabel">12:00</span></label>
+  <input type="range" id="time" min="0" max="24" step="0.25" value="12" />
+
+  <div class="readout">
+    <div><span>太陽高度角</span><b id="alt">–</b></div>
+    <div><span>太陽方位角</span><b id="az">–</b></div>
+  </div>
+
+  <!-- 表示モード -->
+  <div class="btns">
+    <button id="b2d" class="active">2D表示</button>
+    <button id="b3d">3D表示</button>
+    <button id="bnorth">北向きに戻す</button>
+  </div>
+
+  <!-- トグル -->
+  <div class="toggles">
+    <label class="tg"><input type="checkbox" id="tgBright" checked> 明るさ変化</label>
+  </div>
+
+  <!-- 高さ凡例 -->
+  <div class="legend">高さ:
+    <i style="background:#3a9d8f"></i>低層(&lt;10m)
+    <i style="background:#3f7fd6"></i>中層
+    <i style="background:#e8833a"></i>高層(&gt;31m)
+  </div>
+
+  <div id="debug">
+    GeoJSON: <b id="dbgStatus">読み込み中…</b><br>
+    総建物数: <code id="dbgCount">–</code>　height有: <code id="dbgHeight">–</code><br>
+    視野内: <code id="dbgView">–</code>　影polygon数: <code id="dbgShadow">–</code><br>
+    名称field: <code id="dbgNameField">–</code>　名称あり: <code id="dbgNamedCount">–</code>　視野内label: <code id="dbgLabelCount">–</code><br>
+    視点復元: <code id="dbgRestore">–</code><br>
+    太陽高度角: <code id="dbgAlt">–</code>　方位角: <code id="dbgAz">–</code>
+  </div>
+
+  <div id="errBox"></div>
+
+  <div class="notes">
+    ※ この表示は階数別の日照を厳密に判定するものではなく、建物高さと影の方向から大まかに確認するためのものです。<br>
+    ※ 太陽位置は方向を分かりやすく示すための可視化です。実際の距離・大きさを表すものではありません。
+  </div>
+</div>
+
+<script>
+/* =========================================================
+   晴海 日当たりマップ — 実データ専用
+   - ./data/harumi_buildings.geojson のみを読む
+   - サンプル/フォールバック無し。データが無ければ明示エラー。
+   - 建物の実 height(m) で影を計算。
+   ========================================================= */
+// === エリア設定 ===
+const AREA_CONFIG = {
+  chuo: {
+    label: "中央区",
+    areas: {
+      harumi: { label:"晴海", center:[139.7870,35.6550], bbox:[139.778,35.645,139.795,35.663],
+        geojson:"./data/harumi_buildings_named.geojson", geojsonFallback:"./data/harumi_buildings.geojson", prefix:"東京都中央区晴海" }
+    }
+  },
+  edogawa: {
+    label: "江戸川区",
+    areas: {
+      higashikasai: { label:"東葛西", center:[139.8770,35.6590], bbox:[139.866,35.650,139.888,35.668],
+        geojson:"./data/higashikasai_buildings_named.geojson", geojsonFallback:"./data/higashikasai_buildings.geojson", prefix:"東京都江戸川区東葛西" }
+    }
+  }
+};
+const INIT_CENTER = [139.83, 35.66]; // 初期表示（東京湾付近・広域）
+const INIT_ZOOM = 12;
+const MAX_SHADOW_M = 300;
+const UNION_BUILDING_LIMIT = 800;   // 視野内がこれを超えたら union を省略
+const MAX_LABELS = 150;             // 同時表示するラベル数の上限
+// 名称フィールド候補（自動検出）
+const NAME_KEYS = ["name","building_name","facility_name","buildingName","bldg_name","address","名称","建物名","施設名","住所"];
+let NAME_FIELD = null;  // 検出された名称フィールド
+
+let BUILDINGS = turf.featureCollection([]);
+// height>0 の建物だけを事前抽出（{f:feature, h:height}）。影計算で毎フレーム使う。
+let SHADOW_SRC = [];
+
+const el = (id) => document.getElementById(id);
+const dateInput = el("date"), timeInput = el("time"), timeLabel = el("timeLabel");
+const altOut = el("alt"), azOut = el("az");
+const dbgStatus = el("dbgStatus"), dbgCount = el("dbgCount"),
+      dbgHeight = el("dbgHeight"), dbgShadow = el("dbgShadow");
+const dbgAlt = el("dbgAlt"), dbgAz = el("dbgAz"), dbgView = el("dbgView");
+const dbgNameField = el("dbgNameField"), dbgNamedCount = el("dbgNamedCount"), dbgLabelCount = el("dbgLabelCount");
+const dbgRestore = el("dbgRestore");
+const nameMsg = el("nameMsg");
+const errBox = el("errBox");
+const brightness = el("brightness");
+const dateBtns = el("dateBtns"), dateErr = el("dateErr");
+const selKu = el("selKu"), selArea = el("selArea"), currentAreaEl = el("currentArea");
+const searchInput = el("searchInput"), searchBtn = el("searchBtn"), searchMsg = el("searchMsg");
+let highlightedFeature = null; // 検索/選択で高亮された建物
+
+// 表示状態（追加機能）
+let brightnessOn = true, mode3d = false;
+
+// 高さ分級カラー: 低層 / 中層 / 高層
+const HEIGHT_COLOR = ["step", ["get", "height"], "#3a9d8f", 10, "#3f7fd6", 31, "#e8833a"];
+
+const pad2 = (n) => String(n).padStart(2, "0");
+function todayStr(){ const d=new Date(); return `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}`; }
+// 厳密な日付チェック（2/31・4/31 を弾く、閏年も正しく処理）
+function isValidDate(str){
+  const m=/^(\d{4})-(\d{2})-(\d{2})$/.exec(str||""); if(!m) return false;
+  const y=+m[1], mo=+m[2], d=+m[3];
+  const dt=new Date(y, mo-1, d);
+  return dt.getFullYear()===y && dt.getMonth()===mo-1 && dt.getDate()===d;
+}
+
+dateInput.value = todayStr();
+
+function showError(msg){
+  errBox.style.display = "block";
+  errBox.innerHTML = "⚠ " + msg;
+  dbgStatus.textContent = "エラー";
+  dbgStatus.style.color = "#ff8a8a";
+}
+function fmtTime(v){ const h=Math.floor(v),m=Math.round((v-h)*60);
+  return String(h).padStart(2,"0")+":"+String(m%60).padStart(2,"0"); }
+
+// 選択日時を JST(UTC+9) の瞬間として扱う
+function getSelectedDate(){
+  const [y,mo,d]=dateInput.value.split("-").map(Number);
+  const v=parseFloat(timeInput.value), h=Math.floor(v), mi=Math.round((v-h)*60);
+  return new Date(Date.UTC(y,mo-1,d,h-9,mi));
+}
+function computeSun(){
+  const c=map.getCenter();
+  const p=SunCalc.getPosition(getSelectedDate(), c.lat, c.lng);
+  const altDeg=p.altitude*180/Math.PI;
+  const sunBearing=(p.azimuth*180/Math.PI+180+360)%360;
+  return { altDeg, shadowBearing:(sunBearing+180)%360, sunBearing };
+}
+// === 高速凸包(Andrew monotone chain) — turf 不使用 ===
+function cross2d(o,a,b){return(a[0]-o[0])*(b[1]-o[1])-(a[1]-o[1])*(b[0]-o[0]);}
+function convexHull(pts){
+  pts.sort((a,b)=>a[0]-b[0]||a[1]-b[1]);
+  if(pts.length<3) return null;
+  const lo=[],up=[];
+  for(const p of pts){while(lo.length>=2&&cross2d(lo[lo.length-2],lo[lo.length-1],p)<=0)lo.pop();lo.push(p);}
+  for(let i=pts.length-1;i>=0;i--){const p=pts[i];while(up.length>=2&&cross2d(up[up.length-2],up[up.length-1],p)<=0)up.pop();up.push(p);}
+  lo.pop();up.pop();const h=lo.concat(up);h.push(h[0]);return h;
+}
+
+function updateShadows(sun, doUnion){
+  if(!map.getSource("shadows")) return;
+  sun = sun || computeSun();
+  const zoom = map.getZoom();
+
+  // === zoom 分級制御 ===
+  // zoom < 15: 影なし（建物モデルのみ）+ 案内
+  if(zoom < 15){
+    map.getSource("shadows").setData(turf.featureCollection([]));
+    dbgShadow.textContent="0 (低zoom)";
+    errBox.style.display="block"; errBox.dataset.kind="zoom";
+    errBox.innerHTML="拡大すると影を表示します";
+    return;
+  }
+  if(errBox.dataset.kind==="zoom"){ errBox.style.display="none"; errBox.dataset.kind=""; }
+
+  // === 視野内建物だけに絞る ===
+  const bounds=map.getBounds();
+  const mg=0.004; // ~400m マージン（影の延びを考慮）
+  const W=bounds.getWest()-mg, E=bounds.getEast()+mg;
+  const S=bounds.getSouth()-mg, N=bounds.getNorth()+mg;
+  const viewSrc=SHADOW_SRC.filter(item=>{
+    const c=item.f.geometry.coordinates[0][0];
+    return c[0]>=W && c[0]<=E && c[1]>=S && c[1]<=N;
+  });
+  // zoom 15-16: 高層(>10m)のみで軽く
+  const src = zoom<17 ? viewSrc.filter(x=>x.h>10) : viewSrc;
+
+  console.time("⏱ shadow_generation");
+  const shadows=[];
+  if(sun.altDeg>0.5){
+    const bearRad=sun.shadowBearing*Math.PI/180;
+    const sinB=Math.sin(bearRad), cosB=Math.cos(bearRad);
+    const clat=map.getCenter().lat*Math.PI/180;
+    const dxPerM=1/(111320*Math.cos(clat));
+    const dyPerM=1/110540;
+    const tanAlt=Math.tan(sun.altDeg*Math.PI/180);
+    for(const item of src){
+      let L=item.h/tanAlt;
+      if(!isFinite(L)||L<=0) continue;
+      L=Math.min(L,MAX_SHADOW_M);
+      const dx=L*sinB*dxPerM, dy=L*cosB*dyPerM;
+      const ring=item.f.geometry.coordinates[0];
+      const pts=[];
+      for(const p of ring){ pts.push([p[0],p[1]]); pts.push([p[0]+dx,p[1]+dy]); }
+      const hull=convexHull(pts);
+      if(hull) shadows.push(turf.polygon([hull]));
+    }
+  }
+  console.timeEnd("⏱ shadow_generation");
+  const zLabel = zoom<17 ? " (高層のみ)" : "";
+  dbgShadow.textContent=shadows.length+zLabel;
+
+  // === union 判定 ===
+  if(!doUnion || shadows.length<=1 || shadows.length>UNION_BUILDING_LIMIT){
+    map.getSource("shadows").setData(turf.featureCollection(shadows));
+    if(shadows.length>UNION_BUILDING_LIMIT && doUnion){
+      errBox.style.display="block"; errBox.dataset.kind="union";
+      errBox.innerHTML="建物数が多いため、影の統合を省略しています（"+shadows.length+"棟）";
+    }
+    return;
+  }
+  // union（少量のときだけ実行。失敗時は実時影にフォールバック）
+  let merged=null;
+  console.time("⏱ shadow_union");
+  try{
+    let acc=shadows[0];
+    for(let i=1;i<shadows.length;i++){
+      const u=turf.union(acc,shadows[i]);
+      if(u&&u.geometry) acc=u;
+    }
+    if(acc&&acc.geometry) merged=acc;
+  }catch(e){ console.warn("union err:",e); }
+  console.timeEnd("⏱ shadow_union");
+
+  if(merged){
+    map.getSource("shadows").setData(turf.featureCollection([merged]));
+    if(errBox.dataset.kind==="union"){ errBox.style.display="none"; errBox.dataset.kind=""; }
+  } else {
+    map.getSource("shadows").setData(turf.featureCollection(shadows));
+    errBox.style.display="block"; errBox.dataset.kind="union";
+    errBox.innerHTML="⚠ 影の結合に失敗。フォールバック表示中。";
+  }
+}
+
+// 明るさ変化（半透明オーバーレイ）
+function updateBrightness(sun){
+  if(!brightnessOn){ brightness.style.background="transparent"; return; }
+  const a=sun.altDeg;
+  if(a>25){
+    brightness.style.background="rgba(0,0,0,0)";              // 日中: 明るい
+  } else if(a>0){
+    const k=(25-a)/25;                                        // 朝夕: 暖色で少し暗く
+    brightness.style.background="rgba(255,150,70,"+(k*0.40).toFixed(3)+")";
+  } else {
+    const k=Math.min(1,(-a)/12);                              // 日没後: 明確に暗く
+    brightness.style.background="rgba(10,16,38,"+(0.45+k*0.30).toFixed(3)+")";
+  }
+}
+
+function showReadout(sun){
+  altOut.textContent=sun.altDeg.toFixed(1)+"°";
+  azOut.textContent=sun.sunBearing.toFixed(0)+"°";
+  dbgAlt.textContent=sun.altDeg.toFixed(1)+"°";
+  dbgAz.textContent=sun.sunBearing.toFixed(0)+"°";
+}
+
+// 軽量: 明るさと読み数値だけ更新（地図の移動・回転用）。
+// 影は視点に依存しないので、ここでは再計算しない＝カメラ操作が軽くなる。
+function recomputeSunOnly(){
+  if(!map.getSource("shadows")) return;
+  if(!isValidDate(dateInput.value)){ dateErr.textContent="存在しない日付です"; return; }
+  dateErr.textContent="";
+  const sun=computeSun();
+  showReadout(sun);
+  updateBrightness(sun);
+}
+
+// 完全: 日付/時刻が変わったときだけ呼ぶ（影の再計算を含む＝重い処理）。
+// doUnion=false: ドラッグ中は union スキップ（高速プレビュー）
+// doUnion=true:  リリース時・日付切替時に union 実行（重なり解消）
+function recompute(doUnion){
+  if(!map.getSource("shadows")) return;
+  if(!isValidDate(dateInput.value)){ dateErr.textContent="存在しない日付です"; return; }
+  dateErr.textContent="";
+  const sun=computeSun();
+  showReadout(sun);
+  updateShadows(sun, doUnion!==false);
+  updateBrightness(sun);
+}
+
+const map=new maplibregl.Map({
+  container:"map", center:INIT_CENTER, zoom:INIT_ZOOM,
+  style:{ version:8,
+    glyphs:"https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf",
+    sources:{ osm:{ type:"raster",
+      tiles:["https://tile.openstreetmap.org/{z}/{x}/{y}.png"], tileSize:256,
+      attribution:"地図・建物名 © OpenStreetMap contributors / 建物形状 © PLATEAU (国土交通省)" }},
+    layers:[{id:"osm",type:"raster",source:"osm"}] }
+});
+map.addControl(new maplibregl.NavigationControl(),"top-right");
+
+function initLayers(){
+  map.addSource("shadows",{type:"geojson",data:turf.featureCollection([])});
+  map.addLayer({id:"shadow-fill",type:"fill",source:"shadows",
+    paint:{"fill-color":"#16335f","fill-opacity":0.45}});
+
+  map.addSource("buildings",{type:"geojson",data:turf.featureCollection([])});
+  // 2D: 高さ分級カラーの平面塗り
+  map.addLayer({id:"bldg-fill",type:"fill",source:"buildings",
+    paint:{"fill-color":HEIGHT_COLOR,"fill-opacity":0.85}});
+  map.addLayer({id:"bldg-line",type:"line",source:"buildings",
+    paint:{"line-color":"#6b7888","line-width":0.6}});
+  // 3D: fill-extrusion（初期は非表示。height(m) で押し出し。実体表示のため opacity=1）
+  map.addLayer({id:"bldg-extrusion",type:"fill-extrusion",source:"buildings",
+    layout:{visibility:"none"},
+    paint:{"fill-extrusion-color":HEIGHT_COLOR,
+           "fill-extrusion-height":["get","height"],
+           "fill-extrusion-base":0,
+           "fill-extrusion-opacity":1}});
+
+  // 高亮: 検索/選択された建物（目立つ金色）
+  map.addSource("highlight",{type:"geojson",data:turf.featureCollection([])});
+  map.addLayer({id:"highlight-fill",type:"fill",source:"highlight",
+    paint:{"fill-color":"#ffd000","fill-opacity":0.6}});
+  map.addLayer({id:"highlight-line",type:"line",source:"highlight",
+    paint:{"line-color":"#ffb300","line-width":3}});
+  map.addLayer({id:"highlight-extrusion",type:"fill-extrusion",source:"highlight",
+    layout:{visibility: mode3d?"visible":"none"},
+    paint:{"fill-extrusion-color":"#ffcb1f","fill-extrusion-height":["get","height"],
+           "fill-extrusion-base":0,"fill-extrusion-opacity":1}});
+
+  // 建物名標注（name/building_name/facility_name がある建物のみ）
+  // 建物名ラベル: 専用の中心点ソース（updateLabels で視野内のみ生成）
+  map.addSource("labels",{type:"geojson",data:turf.featureCollection([])});
+  map.addLayer({id:"bldg-labels",type:"symbol",source:"labels",
+    layout:{
+      "text-field":["get","label"],
+      "text-font":["Open Sans Regular"],
+      "text-size":12,
+      "text-rotation-alignment":"viewport", // 回転で傾かない
+      "text-pitch-alignment":"viewport",    // 3D傾斜でも正向き
+      "text-allow-overlap":false, "text-ignore-placement":false
+    },
+    paint:{"text-color":"#444","text-halo-color":"#fff","text-halo-width":1.3}
+  });
+  // 選択建物の標注（zoom/MAX_LABELS に関わらず常に表示）
+  map.addLayer({id:"highlight-label",type:"symbol",source:"highlight",
+    layout:{
+      "text-field":["get","label"],
+      "text-font":["Open Sans Regular"],
+      "text-size":13, "text-anchor":"bottom", "text-offset":[0,-1.2],
+      "text-rotation-alignment":"viewport",
+      "text-pitch-alignment":"viewport",
+      "text-allow-overlap":true, "text-ignore-placement":true
+    },
+    paint:{"text-color":"#6b4e00","text-halo-color":"#fff","text-halo-width":2}
+  });
+}
+
+// 建物を高亮表示
+function highlightBuilding(feature, label){
+  highlightedFeature = feature;
+  const f = JSON.parse(JSON.stringify(feature));
+  f.properties.label = label || "";
+  map.getSource("highlight").setData(turf.featureCollection([f]));
+  if(typeof updateLabels==="function") updateLabels();
+}
+function clearHighlight(){
+  highlightedFeature = null;
+  map.getSource("highlight").setData(turf.featureCollection([]));
+  if(typeof updateLabels==="function") updateLabels();
+}
+
+// 検出した名称フィールド + 住所の有無を UI/デバッグに反映
+function applyLabelField(field){
+  const feats = BUILDINGS.features || [];
+  const named = field ? feats.filter(f=>f.properties && f.properties[field]).length : 0;
+  const addrCount = feats.filter(f=>f.properties && f.properties.addr).length;
+  if(field || addrCount){
+    const parts=[];
+    if(field) parts.push("名称"+named+"件");
+    if(addrCount) parts.push("住所"+addrCount+"件");
+    nameMsg.textContent = "ラベル: "+parts.join(" / ")+"（zoomで段階表示）";
+    nameMsg.style.color = "#7fd4a0";
+    dbgNameField.textContent = field || "(住所のみ)";
+    dbgNamedCount.textContent = named + addrCount;
+  } else {
+    nameMsg.textContent = "この地域の建物名称・住所データはありません";
+    nameMsg.style.color = "#c0853a";
+    dbgNameField.textContent = "なし";
+    dbgNamedCount.textContent = "0";
+  }
+  updateLabels();
+}
+
+// ポリゴン重心（簡易平均）を持つラベル用ポイント
+function labelPoint(feature, text){
+  const ring=feature.geometry.coordinates[0];
+  let sx=0,sy=0,n=ring.length-1;
+  for(let i=0;i<n;i++){ sx+=ring[i][0]; sy+=ring[i][1]; }
+  return turf.point([sx/n, sy/n], { label:String(text) });
+}
+
+// 住所を「番-号」だけに短縮（丁目は出さない）
+function shortenAddress(s){
+  if(!s) return "";
+  s=String(s).replace(/[０-９]/g,c=>String.fromCharCode(c.charCodeAt(0)-0xFF10+0x30)).replace(/[ー－―−—]/g,"-");
+  let m;
+  if((m=s.match(/(\d+)丁目(\d+)番(\d+)号/))) return m[2]+"-"+m[3];
+  if((m=s.match(/(\d+)番(\d+)号/)))         return m[1]+"-"+m[2];
+  if((m=s.match(/(\d+)-(\d+)-(\d+)/)))      return m[2]+"-"+m[3];
+  if((m=s.match(/(\d+)-(\d+)/)))            return m[1]+"-"+m[2];
+  if((m=s.match(/(\d+)番/)))                return m[1];
+  return s;
+}
+// 建物のラベル文字: name 優先、無ければ住所(番-号)
+function buildingLabel(props){
+  if(!props) return null;
+  if(NAME_FIELD && props[NAME_FIELD]) return String(props[NAME_FIELD]);
+  if(props.addr) return shortenAddress(props.addr);
+  return null;
+}
+// 建物の rank: name は name_rank(1-3)、住所のみは 4
+function buildingRank(props){
+  if(NAME_FIELD && props[NAME_FIELD]) return props.name_rank || 3;
+  if(props.addr) return 4;
+  return 9;
+}
+
+// zoom 段階表示（緩め）
+function labelMaxRank(zoom){
+  if(zoom < 15) return 0;   // 選択建物のみ
+  if(zoom < 16) return 1;   // rank1 重要施設
+  if(zoom < 17) return 2;   // rank1+2
+  if(zoom < 18) return 3;   // すべての name
+  return 4;                  // name + 住所
+}
+function updateLabels(){
+  if(!map.getSource("labels")) return;
+  const zoom=map.getZoom();
+  const maxRank=labelMaxRank(zoom);
+  const feats=[], seen=new Set();
+  // 選択建物は highlight-label が常時表示するので、ここでは除外（重複防止）
+  if(highlightedFeature) seen.add(highlightedFeature);
+  if(maxRank>=1){
+    const b=map.getBounds(), W=b.getWest(),E=b.getEast(),S=b.getSouth(),N=b.getNorth();
+    const cands=[];
+    for(const f of BUILDINGS.features){
+      if(seen.has(f)) continue;
+      const txt=buildingLabel(f.properties);
+      if(!txt) continue;
+      const rank=buildingRank(f.properties);
+      if(rank>maxRank) continue;
+      const c=f.geometry.coordinates[0][0];
+      if(c[0]<W||c[0]>E||c[1]<S||c[1]>N) continue;
+      cands.push({f, txt, rank, h:Number(f.properties.height)||0});
+    }
+    // 優先度: rank 昇順(name>rank1>rank2>住所) → 高さ降順
+    cands.sort((a,b)=> a.rank-b.rank || b.h-a.h);
+    const room=Math.max(0, MAX_LABELS-feats.length);
+    for(const c of cands.slice(0,room)) feats.push(labelPoint(c.f, c.txt));
+  }
+  map.getSource("labels").setData(turf.featureCollection(feats));
+  dbgLabelCount.textContent=String(feats.length);
+}
+
+// 現在の map bounds 内の建物数を数えてデバッグ表示（表示は MapLibre が自動描画）
+function updateVisibleCount(){
+  if(!BUILDINGS.features.length){ dbgView.textContent="–"; return; }
+  const b=map.getBounds();
+  const W=b.getWest(), E=b.getEast(), S=b.getSouth(), N=b.getNorth();
+  let n=0;
+  for(const f of BUILDINGS.features){
+    const c=f.geometry.coordinates[0][0];
+    if(c[0]>=W&&c[0]<=E&&c[1]>=S&&c[1]<=N) n++;
+  }
+  dbgView.textContent=n+" / "+BUILDINGS.features.length;
+}
+
+// 2D/3D 切替
+function setMode(is3d, skipCamera){
+  mode3d=is3d;
+  map.setLayoutProperty("bldg-extrusion","visibility", is3d?"visible":"none");
+  map.setLayoutProperty("bldg-fill","visibility", is3d?"none":"visible");
+  map.setLayoutProperty("highlight-extrusion","visibility", is3d?"visible":"none");
+  el("b3d").classList.toggle("active", is3d);
+  el("b2d").classList.toggle("active", !is3d);
+  if(skipCamera) return;  // 復元時はカメラを動かさない（jumpTo の pitch/bearing を維持）
+  if(is3d) map.easeTo({pitch:60,bearing:-30,duration:500});
+  else     map.easeTo({pitch:0,bearing:0,duration:500});
+}
+
+// 実データのみ読み込み。named が無ければ fallback。失敗時は明示エラー。
+async function loadData(url, fallbackUrl){
+  if(!url){ currentAreaEl.textContent="地域を選択してください"; return; }
+  let r, usedFallback=false;
+  try{
+    r=await fetch(url,{cache:"no-cache"});
+  }catch(e){
+    showError("データ取得に失敗しました。<br><code>file://</code> では読めません。"+
+      "静的サーバ（Netlify 等）で開いてください。<br>詳細: "+e);
+    return;
+  }
+  // named ファイルが無い → 元データへフォールバック
+  if(r.status===404 && fallbackUrl){
+    console.warn("named が無いので fallback:", fallbackUrl);
+    try{ r=await fetch(fallbackUrl,{cache:"no-cache"}); usedFallback=true; }catch(e){}
+  }
+  if(r.status===404){
+    showError("<code>"+url+"</code> が見つかりません（HTTP 404）。<br>"+
+      "まだ実データを生成していません。<code>scripts/prepare_data.py</code> を実行して "+
+      "GeoJSON を作成してください。");
+    return;
+  }
+  if(!r.ok){ showError("読み込み失敗: HTTP "+r.status); return; }
+
+  let fc;
+  try{ console.time("⏱ json_parse"); fc=await r.json(); console.timeEnd("⏱ json_parse"); }
+  catch(e){ showError("GeoJSON の解析に失敗しました: "+e); return; }
+
+  if(!fc.features || fc.features.length===0){
+    showError("建物が 0 件です。prepare_data.py のログ（範囲内/有高度）を確認してください。");
+    dbgStatus.textContent="OK(空)"; dbgCount.textContent="0"; dbgHeight.textContent="0";
+    return;
+  }
+  console.log("📊 features:", fc.features.length, "| file ~", Math.round(JSON.stringify(fc).length/1024)+"KB");
+  // --- 先頭20件の properties を出力 ---
+  console.log("📋 properties サンプル (先頭20件):");
+  fc.features.slice(0,20).forEach((f,i)=>console.log("  ["+i+"]", JSON.stringify(f.properties)));
+  // --- 全 properties に出現するキーを集計 ---
+  const allKeys=new Set();
+  fc.features.forEach(f=>{ if(f.properties) Object.keys(f.properties).forEach(k=>allKeys.add(k)); });
+  console.log("All property keys:", [...allKeys]);
+  // --- 名称フィールドの自動検出 ---
+  NAME_FIELD = null;
+  for(const k of NAME_KEYS){
+    if(fc.features.some(f=>f.properties && f.properties[k] && String(f.properties[k]).trim())){ NAME_FIELD=k; break; }
+  }
+  console.log("📋 検出された名称フィールド:", NAME_FIELD || "（なし）");
+
+  BUILDINGS=fc;            // applyLabelField が件数を数えるので先に設定
+  applyLabelField(NAME_FIELD);
+  if(usedFallback){
+    nameMsg.textContent="OSM名称データ未適用（元データ表示中）。enrich_with_osm.py を実行してください";
+    nameMsg.style.color="#c0853a";
+  }
+
+  console.time("⏱ shadow_src_filter");
+  SHADOW_SRC = fc.features
+    .map(f=>({ f, h: Number(f.properties && (f.properties.height ?? f.properties.measuredHeight))||0 }))
+    .filter(x=>x.h>0);
+  console.timeEnd("⏱ shadow_src_filter");
+  console.log("📊 SHADOW_SRC (height>0):", SHADOW_SRC.length);
+  const withH=SHADOW_SRC.length;
+  dbgStatus.textContent="OK (HTTP "+r.status+")"; dbgStatus.style.color="#7fd4a0";
+  dbgCount.textContent=fc.features.length;
+  dbgHeight.textContent=withH;
+  errBox.style.display="none";
+
+  console.time("⏱ setData_buildings");
+  map.getSource("buildings").setData(BUILDINGS);
+  console.timeEnd("⏱ setData_buildings");
+  // ※ fitBounds はしない（selArea の flyTo で zoom17 に寄せた視点を維持するため）
+  updateVisibleCount();
+  console.time("⏱ recompute_total");
+  recompute(false);  // 初回は union スキップ
+  console.timeEnd("⏱ recompute_total");
+}
+
+timeInput.addEventListener("input",()=>{ timeLabel.textContent=fmtTime(parseFloat(timeInput.value));
+  clearTimeout(window._t); window._t=setTimeout(()=>recompute(false),50); }); // ドラッグ中: union スキップ、影リアルタイム
+timeInput.addEventListener("change",()=>recompute(true));  // リリース時: union で統一深浅
+// 地図の移動/ズームでも影と視野内カウントを更新（視野フィルタにより軽い）
+map.on("moveend",()=>{ updateVisibleCount(); updateLabels(); recompute(false); });
+
+// --- 日付選択（今日 / 節気 / カスタム）---
+function markDateActive(btn){
+  dateBtns.querySelectorAll("button").forEach(b=>b.classList.remove("active"));
+  if(btn) btn.classList.add("active");
+}
+function applyDate(str, btn){
+  if(!isValidDate(str)){ dateErr.textContent="存在しない日付です"; return; } // 非法→何も更新しない
+  dateErr.textContent="";
+  dateInput.value=str;
+  markDateActive(btn);
+  recompute();
+}
+dateBtns.addEventListener("click",(e)=>{
+  const b=e.target.closest("button"); if(!b) return;
+  const preset=b.dataset.preset;
+  if(preset==="custom"){
+    dateInput.style.display="block";      // カスタムのときだけ <input type=date> を表示
+    markDateActive(b);
+    dateInput.focus();
+    return;                               // 日付確定は input の change で行う
+  }
+  dateInput.style.display="none";
+  if(preset==="today"){ applyDate(todayStr(), b); return; }
+  // 節気: 現在選択中の年（無ければ今年）に対して設定
+  const y=(dateInput.value.split("-")[0]) || String(new Date().getFullYear());
+  applyDate(`${y}-${pad2(+b.dataset.mo)}-${pad2(+b.dataset.d)}`, b);
+});
+// <input type=date> は 2/31・4/31 等を弾く。閏年含め JS でも再検証する。
+dateInput.addEventListener("change",()=>{
+  applyDate(dateInput.value, dateBtns.querySelector('[data-preset="custom"]'));
+});
+
+// 2D / 3D / 北向き
+el("b2d").addEventListener("click",()=>setMode(false));
+el("b3d").addEventListener("click",()=>setMode(true));
+el("bnorth").addEventListener("click",()=>map.easeTo({bearing:0,duration:500}));
+
+// トグル
+el("tgBright").addEventListener("change",(e)=>{ brightnessOn=e.target.checked; recomputeSunOnly(); });
+
+// ========== 住所検索（国土地理院 API + 自動区域判定 + 建物マッチ）==========
+
+// 入力を正規化
+function normalizeAddressInput(raw){
+  let s = (raw||"").trim();
+  s = s.replace(/[０-９]/g, c=>String.fromCharCode(c.charCodeAt(0)-0xFF10+0x30)); // 全角→半角
+  s = s.replace(/[ー－―−—]/g, "-");   // 各種ダッシュ→ハイフン
+  s = s.replace(/\s+/g, "");           // 空白除去
+  // 「丁目内」混在: 6丁目14-10 → 6丁目14番10号
+  s = s.replace(/丁目(\d+)-(\d+)/, "丁目$1番$2号");
+  s = s.replace(/丁目(\d+)-/, "丁目$1番");
+  // N-M-K → N丁目M番K号
+  let m;
+  if((m=s.match(/^(\d+)-(\d+)-(\d+)$/))) s = `${m[1]}丁目${m[2]}番${m[3]}号`;
+  else if((m=s.match(/^(\d+)-(\d+)$/)))  s = `${m[1]}丁目${m[2]}番`;
+  return s;
+}
+
+// 経緯度がどの対応区域に入るか判定
+function detectArea(lon, lat){
+  for(const [kuKey,ku] of Object.entries(AREA_CONFIG)){
+    for(const [areaKey,area] of Object.entries(ku.areas)){
+      const bb=area.bbox; if(!bb) continue;
+      if(lon>=bb[0]&&lon<=bb[2]&&lat>=bb[1]&&lat<=bb[3])
+        return {kuKey, areaKey, ku, area};
+    }
+  }
+  return null;
+}
+
+// 区域を自動切替してデータを読み込む
+async function switchToArea(kuKey, areaKey){
+  const ku=AREA_CONFIG[kuKey], area=ku.areas[areaKey];
+  selKu.value=kuKey;
+  selKu.dispatchEvent(new Event("change")); // selArea のオプションを更新
+  selArea.value=areaKey;
+  currentAreaEl.textContent=`現在の地域：${ku.label} ${area.label}`;
+  await loadData(area.geojson, area.geojsonFallback);
+}
+
+// 建物マッチ + 高亮
+function matchBuilding(lon, lat){
+  if(!BUILDINGS.features.length) return null;
+  const pt=turf.point([lon,lat]);
+  let found=null, inPoly=false, minD=Infinity;
+  // 1) polygon 内
+  for(const f of BUILDINGS.features){
+    try{ if(turf.booleanPointInPolygon(pt,f)){found=f;inPoly=true;break;} }catch(e){}
+  }
+  console.log("🔎 polygon内:", inPoly);
+  // 2) 最寄り 30m
+  if(!found){
+    for(const f of BUILDINGS.features){
+      try{ const c=turf.centroid(f); const d=turf.distance(pt,c,{units:"meters"});
+        if(d<minD){minD=d;found=f;} }catch(e){}
+    }
+    console.log("🔎 最近建物距離:", Math.round(minD)+"m");
+    if(minD>30){ found=null; }
+  }
+  if(found){
+    const h=Number(found.properties.height)||0;
+    const nm=buildingLabel(found.properties)||found.properties.gml_id||"";
+    const c=turf.centroid(found).geometry.coordinates;
+    // 明確に: flyTo zoom 18.5 → 高亮 → popup
+    map.flyTo({center:c, zoom:18.5, duration:700});
+    highlightBuilding(found, buildingLabel(found.properties)||found.properties.gml_id||"");
+    map.once("moveend", ()=>openBuildingPopup(found, c));
+    searchMsg.textContent=(inPoly?"建物内":"最寄り"+Math.round(minD)+"m")+" → 高さ"+h.toFixed(1)+"m"+(nm?" ("+nm+")":"");
+  } else {
+    clearHighlight();
+    searchMsg.textContent="該当する建物が見つかりません"+(minD<Infinity?" (最寄り"+Math.round(minD)+"m)":"");
+  }
+  return found;
+}
+
+// メイン検索フロー: 入力 → normalize → 国土地理院 API → 区域判定 → 建物マッチ
+async function searchAddress(){
+  const raw=searchInput.value.trim();
+  if(!raw){ searchMsg.textContent=""; return; }
+
+  // 1) normalize
+  let q = normalizeAddressInput(raw);
+  console.log("🔎 原始入力:", raw, "→ normalize:", q);
+
+  // 2) 短い入力(数字で始まる = 区域内アドレスのみ)の場合、現在区域のプレフィックスを付与
+  const kuKey=selKu.value, areaKey=selArea.value;
+  if(/^\d/.test(q) && kuKey && areaKey){
+    const prefix = AREA_CONFIG[kuKey].areas[areaKey].prefix || "";
+    q = prefix + q;
+    console.log("🔎 prefix付与:", q);
+  }
+  // 区名/地域名だけの場合も「東京都」を足す
+  if(q && !q.startsWith("東京都") && /^[^\d]/.test(q)){
+    // 各 prefix にマッチするか確認し、マッチしたら東京都を付ける
+    for(const ku of Object.values(AREA_CONFIG)){
+      for(const a of Object.values(ku.areas)){
+        if(q.startsWith(a.prefix.replace("東京都",""))){ q="東京都"+q; break; }
+      }
+    }
+  }
+
+  console.log("🔎 最終geocoding住所:", q);
+  searchMsg.textContent="検索中… ("+q+")";
+
+  // 3) 国土地理院 住所検索 API
+  try{
+    const url="https://msearch.gsi.go.jp/address-search/AddressSearch?q="+encodeURIComponent(q);
+    const r=await fetch(url);
+    const results=await r.json(); // 配列 [{type:"Feature", geometry:{coordinates:[lon,lat]}, properties:{title}}]
+    console.log("🔎 国土地理院 結果数:", results.length, results.slice(0,3));
+    if(!results.length){ searchMsg.textContent="住所が見つかりません（国土地理院 0件）"; return; }
+
+    // 4) ベスト結果を選ぶ（現在区域内のものを優先）
+    let best=results[0];
+    if(kuKey&&areaKey){
+      const area=AREA_CONFIG[kuKey].areas[areaKey];
+      const bb=area.bbox;
+      if(bb){
+        const inArea=results.find(r=>{
+          const c=r.geometry&&r.geometry.coordinates;
+          return c&&c[0]>=bb[0]&&c[0]<=bb[2]&&c[1]>=bb[1]&&c[1]<=bb[3];
+        });
+        if(inArea) best=inArea;
+      }
+    }
+    const [lon,lat]=best.geometry.coordinates;
+    console.log("🔎 使用経緯度:", lat, lon, "| title:", best.properties&&best.properties.title);
+
+    // 5) 区域判定
+    const det=detectArea(lon,lat);
+    console.log("🔎 判定区域:", det?`${det.ku.label} ${det.area.label}`:"(対応区域外)");
+    if(!det){
+      searchMsg.textContent="この地域の建物データはまだありません（対応区域外）";
+      clearHighlight(); return;
+    }
+
+    // 6) 必要なら区域を自動切替 + データ読み込み
+    if(selKu.value!==det.kuKey || selArea.value!==det.areaKey){
+      console.log("🔎 区域自動切替:", det.kuKey, det.areaKey);
+      await switchToArea(det.kuKey, det.areaKey);
+    } else if(!BUILDINGS.features.length){
+      // 同一区域だがデータ未ロード
+      await loadData(det.area.geojson, det.area.geojsonFallback);
+    }
+
+    // 7) 建物マッチ
+    matchBuilding(lon, lat);
+  }catch(e){ console.error("検索エラー:",e); searchMsg.textContent="検索エラー: "+e; }
+}
+searchBtn.addEventListener("click", searchAddress);
+searchInput.addEventListener("keydown",(e)=>{ if(e.key==="Enter") searchAddress(); });
+
+// --- sessionStorage: detail.html 往復で地図状態を保存/復元 ---
+function saveMapState(bid){
+  let selName="", selIdx=-1;
+  if(highlightedFeature){
+    selName = buildingLabel(highlightedFeature.properties) || "";
+    selIdx = BUILDINGS.features.findIndex(f=>f===highlightedFeature ||
+      (f.properties.gml_id && f.properties.gml_id===highlightedFeature.properties.gml_id));
+  }
+  const state = {
+    center:[map.getCenter().lng,map.getCenter().lat],
+    zoom:map.getZoom(), pitch:map.getPitch(), bearing:map.getBearing(),
+    ku:selKu.value, area:selArea.value,
+    date:dateInput.value, time:timeInput.value,
+    buildingId:bid||"", selectedBuildingName:selName, selectedFeatureIndex:selIdx,
+    viewMode: mode3d?"3D":"2D", mode3d: mode3d
+  };
+  sessionStorage.setItem("sunmap", JSON.stringify(state));
+  sessionStorage.setItem("shouldRestoreMapState", "true");
+  console.log("💾 mapViewState 保存:", state, "| shouldRestoreMapState=true");
+}
+
+// 建物 popup を開く（クリック・検索で共通。名称/住所/高さ/推定階数）
+function openBuildingPopup(feature, lngLat){
+  const props=feature.properties||{};
+  const h=Number(props.height)||0;
+  const floors=Math.max(1,Math.round(h/3));
+  const nm=(NAME_FIELD&&props[NAME_FIELD])||"";
+  const addrShort=props.addr?shortenAddress(props.addr):"";
+  let buildingId=props.gml_id;
+  if(!buildingId){
+    const idx=BUILDINGS.features.findIndex(f=>f===feature);
+    buildingId="index-"+idx; // TODO: 安定IDに置き換える
+  }
+  const kuCfg=(selKu.value&&selArea.value)?AREA_CONFIG[selKu.value].areas[selArea.value]:null;
+  const geoUrl=kuCfg?kuCfg.geojson:"";
+  const url="detail.html?buildingId="+encodeURIComponent(buildingId)
+    +"&geojson="+encodeURIComponent(geoUrl)
+    +"&date="+encodeURIComponent(dateInput.value)
+    +"&time="+encodeURIComponent(timeInput.value);
+  let html="<div style='color:#111;font-size:13px;line-height:1.6'>";
+  if(nm)        html+="名称: <b>"+nm+"</b><br>";
+  if(addrShort) html+="住所: <b>"+addrShort+"</b><br>";
+  html+="建築高さ: <b>"+h.toFixed(1)+" m</b><br>推定階数: <b>"+floors+" 階</b>"
+    +"<br><span style='color:#777;font-size:11px'>（推定階数 = 高さ ÷ 3m）</span>"
+    +"<br><a data-detail href='"+url+"' style='display:inline-block;margin-top:8px;padding:6px 10px;"
+    +"background:#ffb53d;color:#1a1205;border-radius:6px;font-weight:700;"
+    +"text-decoration:none;font-size:12px'>この建物の光を見る</a></div>";
+  const popup = new maplibregl.Popup({closeButton:true, maxWidth:"260px"})
+    .setLngLat(lngLat).setHTML(html).addTo(map);
+  // 高亮（label は name → 住所 の順）
+  highlightBuilding(feature, buildingLabel(props) || buildingId);
+  // この popup の DOM に限定してリンクを取得（document 全体検索だと取りこぼし得る）
+  const detailLink = popup.getElement() && popup.getElement().querySelector("a[data-detail]");
+  if(detailLink) detailLink.addEventListener("click",()=>saveMapState(buildingId));
+}
+
+// 建物クリック
+function onBldgClick(e){
+  const fs=map.queryRenderedFeatures(e.point,{layers:["bldg-fill","bldg-extrusion"]});
+  if(!fs.length) return;
+  // クリック地点の実 feature を BUILDINGS から特定（queryRenderedFeatures は別インスタンス）
+  const gid=fs[0].properties&&fs[0].properties.gml_id;
+  const real=gid?BUILDINGS.features.find(f=>f.properties.gml_id===gid):fs[0];
+  openBuildingPopup(real||fs[0], e.lngLat);
+}
+map.on("click", onBldgClick);
+["bldg-fill","bldg-extrusion"].forEach(id=>{
+  map.on("mouseenter",id,()=>map.getCanvas().style.cursor="pointer");
+  map.on("mouseleave",id,()=>map.getCanvas().style.cursor="");
+});
+
+map.on("load",()=>{
+  initLayers();
+  // 区セレクトを AREA_CONFIG から生成
+  for(const [k,v] of Object.entries(AREA_CONFIG)){
+    selKu.insertAdjacentHTML("beforeend",`<option value="${k}">${v.label}</option>`);
+  }
+  // 区を選ぶ → 地域セレクトを更新
+  selKu.addEventListener("change",()=>{
+    selArea.innerHTML='<option value="">地域を選択</option>';
+    const ku=AREA_CONFIG[selKu.value];
+    if(ku){ for(const [k,v] of Object.entries(ku.areas)){
+      selArea.insertAdjacentHTML("beforeend",`<option value="${k}">${v.label}</option>`);
+    }}
+    // 旧データをクリア
+    BUILDINGS=turf.featureCollection([]); SHADOW_SRC=[];
+    map.getSource("buildings").setData(BUILDINGS);
+    map.getSource("shadows").setData(turf.featureCollection([]));
+    currentAreaEl.textContent="地域を選択してください";
+    dbgStatus.textContent="–"; dbgCount.textContent="–"; dbgHeight.textContent="–"; dbgShadow.textContent="0";
+    errBox.style.display="none";
+  });
+  // 地域を選ぶ → データ読み込み + 地図移動（zoom 17 でやや寄る）
+  selArea.addEventListener("change",()=>{
+    const kuKey=selKu.value, areaKey=selArea.value;
+    if(!kuKey||!areaKey) return;
+    const ku=AREA_CONFIG[kuKey], area=ku.areas[areaKey];
+    currentAreaEl.textContent=`現在の地域：${ku.label} ${area.label}`;
+    clearHighlight();
+    map.flyTo({center:area.center, zoom:17, duration:800});
+    loadData(area.geojson, area.geojsonFallback);
+  });
+
+  // ===== 初期化: restore 経路 と default 経路を明確に分岐 =====
+  function populateAreaOptions(kuKey){
+    selArea.innerHTML='<option value="">地域を選択</option>';
+    const ku=AREA_CONFIG[kuKey];
+    if(ku){ for(const [k,v] of Object.entries(ku.areas))
+      selArea.insertAdjacentHTML("beforeend",`<option value="${k}">${v.label}</option>`); }
+  }
+  const _params=new URLSearchParams(location.search);
+  const saved=sessionStorage.getItem("sunmap");
+  const hasRestoreState = (_params.get("restore")==="1" ||
+                           sessionStorage.getItem("shouldRestoreMapState")==="true") && !!saved;
+  const skipDefaultInit = hasRestoreState;
+  console.log("🔄 初期化順序 → hasRestoreState:", hasRestoreState, "| skipDefaultInit:", skipDefaultInit);
+
+  if(!skipDefaultInit){
+    // === default 経路（地域未選択の初期表示。自動ロードはしない）===
+    console.log("🔄 defaultInitCalled = true（初期表示。ユーザーの地域選択を待つ）");
+    dbgRestore.textContent = "—";
+  } else {
+    // === restore 経路（GeoJSON ロード完了後に視点を適用。default では上書きしない）===
+    try{
+      const s=JSON.parse(saved);
+      console.log("🔄 mapViewState 読取:", s);
+      if(s.ku){ selKu.value=s.ku; populateAreaOptions(s.ku); } // dispatchしない（clear回避）
+      if(s.area){ selArea.value=s.area; }
+      if(s.date) dateInput.value=s.date;
+      if(s.time!=null){ timeInput.value=s.time; timeLabel.textContent=fmtTime(parseFloat(timeInput.value)); }
+      const ku=AREA_CONFIG[s.ku], area=ku&&ku.areas[s.area];
+      if(area){
+        currentAreaEl.textContent=`現在の地域：${ku.label} ${area.label}`;
+        // GeoJSON ロード完了を待ってから視点・選択建物を適用
+        loadData(area.geojson, area.geojsonFallback).then(()=>{
+          console.log("🔄 areaLoaded = true（建物数:", BUILDINGS.features.length, "）");
+          if(s.mode3d) setMode(true, true);  // 3D表示のレイヤだけ切替（カメラは動かさない）
+          map.jumpTo({center:s.center, zoom:s.zoom, pitch:s.pitch||0, bearing:s.bearing||0});
+          recompute(false);
+          // 選択建物の高亮(黄)・popup・label を復元
+          let f=null; const bid=s.buildingId||"";
+          if(bid && !bid.startsWith("index-")) f=BUILDINGS.features.find(x=>x.properties.gml_id===bid);
+          if(!f && bid.startsWith("index-")){ const i=parseInt(bid.replace("index-",""),10);
+            if(i>=0 && i<BUILDINGS.features.length) f=BUILDINGS.features[i]; }
+          if(!f && s.selectedFeatureIndex>=0 && s.selectedFeatureIndex<BUILDINGS.features.length)
+            f=BUILDINGS.features[s.selectedFeatureIndex];
+          if(f){ const c=turf.centroid(f).geometry.coordinates; openBuildingPopup(f, c); }
+          // 検証 + デバッグ
+          const okZoom=Math.abs(map.getZoom()-s.zoom)<0.6, okMode=(!!s.mode3d===mode3d);
+          const ok=okZoom&&okMode;
+          dbgRestore.textContent = ok?"成功":"一部不一致";
+          dbgRestore.style.color = ok?"#7fd4a0":"#c0853a";
+          console.log("🔄 viewRestored = true →",
+            "zoom:",map.getZoom().toFixed(2),"/ pitch:",map.getPitch().toFixed(0),
+            "/ bearing:",map.getBearing().toFixed(0),"/ viewMode:",mode3d?"3D":"2D",
+            "| zoom一致:",okZoom,"viewMode一致:",okMode);
+          // 復元完了後にのみフラグとデータを削除
+          sessionStorage.removeItem("sunmap");
+          sessionStorage.removeItem("shouldRestoreMapState");
+          // restore=1 の URL を消す（再読み込み時に誤発火しないように）
+          if(history.replaceState) history.replaceState(null,"",location.pathname);
+        });
+      } else {
+        console.warn("🔄 復元: area 不明 → default");
+        dbgRestore.textContent="失敗"; dbgRestore.style.color="#ff8a8a";
+        sessionStorage.removeItem("shouldRestoreMapState");
+      }
+    }catch(e){ console.warn("🔄 復元失敗:",e); dbgRestore.textContent="失敗"; dbgRestore.style.color="#ff8a8a"; }
+  }
+});
+</script>
+</body>
+</html>

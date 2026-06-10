@@ -1,0 +1,14 @@
+.DS_Store
+
+# Raw PLATEAU archives are multi-GB and should be downloaded locally when needed.
+raw/*.zip
+
+# Local tooling and temporary files.
+node_modules/
+.venv/
+__pycache__/
+*.pyc
+
+# Codex workspace scratch/output folders.
+work/
+outputs/

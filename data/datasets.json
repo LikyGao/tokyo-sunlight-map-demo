@@ -1,0 +1,39 @@
+{
+  "schema_version": 1,
+  "datasets": [
+    {
+      "dataset_id": "chuo_harumi",
+      "ward": "中央区",
+      "area": "晴海",
+      "label": "中央区 晴海",
+      "bbox": [139.778, 35.645, 139.795, 35.663],
+      "center": [139.787, 35.655],
+      "geojson_path": "./data/harumi_buildings.geojson",
+      "fallback_geojson_path": "./data/harumi_buildings.geojson",
+      "address_prefix": "東京都中央区晴海",
+      "source": {
+        "city": "東京都中央区",
+        "plateau_module": "bldg",
+        "raw_archive": "raw/plateau_chuo_citygml.zip",
+        "generated_by": "scripts/prepare_data.py"
+      }
+    },
+    {
+      "dataset_id": "edogawa_higashikasai",
+      "ward": "江戸川区",
+      "area": "東葛西",
+      "label": "江戸川区 東葛西",
+      "bbox": [139.866, 35.65, 139.888, 35.668],
+      "center": [139.877, 35.659],
+      "geojson_path": "./data/higashikasai_buildings.geojson",
+      "fallback_geojson_path": "./data/higashikasai_buildings.geojson",
+      "address_prefix": "東京都江戸川区東葛西",
+      "source": {
+        "city": "東京都江戸川区",
+        "plateau_module": "bldg",
+        "raw_archive": "raw/plateau_edogawa_citygml.zip",
+        "generated_by": "scripts/prepare_data.py"
+      }
+    }
+  ]
+}

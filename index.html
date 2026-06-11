@@ -135,7 +135,7 @@
 </div>
 
 <script>
-const DATASETS = [
+const DEFAULT_DATASETS = [
   {
     dataset_id: "chuo_harumi",
     ward: "中央区",
@@ -159,6 +159,7 @@ const DATASETS = [
     address_prefix: "東京都江戸川区東葛西"
   }
 ];
+let DATASETS = DEFAULT_DATASETS;
 
 const INIT_CENTER = [139.83, 35.66];
 const INIT_ZOOM = 12;
@@ -258,6 +259,16 @@ function selectDataset(dataset){
   selKu.dispatchEvent(new Event("change"));
   selArea.value = dataset.dataset_id;
   currentAreaForSearch = dataset;
+}
+async function loadDatasetManifest(){
+  try{
+    const r = await fetch("./data/datasets.json", {cache:"no-cache"});
+    if(!r.ok) throw new Error("HTTP " + r.status);
+    const manifest = await r.json();
+    if(Array.isArray(manifest.datasets) && manifest.datasets.length) DATASETS = manifest.datasets;
+  }catch(e){
+    DATASETS = DEFAULT_DATASETS;
+  }
 }
 
 async function fetchDataset(dataset){
@@ -746,8 +757,9 @@ map.on("click", onBldgClick);
   map.on("mouseleave",id,()=>map.getCanvas().style.cursor="");
 });
 
-map.on("load",()=>{
+map.on("load", async ()=>{
   initLayers();
+  await loadDatasetManifest();
   const wards=[...new Set(DATASETS.map(d=>d.ward))];
   for(const ward of wards) selKu.insertAdjacentHTML("beforeend",`<option value="${ward}">${ward}</option>`);
   selKu.addEventListener("change",()=>{

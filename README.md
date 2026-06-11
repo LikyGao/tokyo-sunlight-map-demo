@@ -14,7 +14,7 @@ Project PLATEAU の建物 GeoJSON を使った、東京向けの日当たりマ�
 
 ## Dataset 管理
 
-Dataset は `index.html` 内の `DATASETS` 配列で管理します。将来 23 区に広げるときは、以下の形式で追加します。
+Dataset は `data/datasets.json` で管理します。将来 23 区に広げるときは、以下の形式で追加します。
 
 ```js
 {
@@ -29,6 +29,8 @@ Dataset は `index.html` 内の `DATASETS` 配列で管理します。将来 23 
   address_prefix: "東京都江東区豊洲"
 }
 ```
+
+詳細なデータ成果物の標準は [docs/data-standard.md](docs/data-standard.md) を参照してください。
 
 ## ファイル構成
 

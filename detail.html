@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>詳細3Dモード — 東葛西 日当たりマップ</title>
+<title>詳細3Dモード — 東京 日当たりマップ</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/suncalc/1.9.0/suncalc.min.js"></script>
 <script type="importmap">
 { "imports": {
@@ -24,8 +24,14 @@ h1{font-size:14px;margin:0 0 4px}
   border:1px solid #2b3340;border-radius:6px;text-decoration:none;font-size:13px}
 .back:hover{background:#2c3640}
 label{display:block;font-size:12px;color:#8d99a8;margin:10px 0 4px}
+input[type=date]{width:100%;background:#0f141b;border:1px solid #2b3340;color:#e8edf2;border-radius:6px;padding:6px 8px}
 input[type=range]{width:100%}
 .val{color:#ffb53d;font-weight:600}
+.date-row{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+.date-row button{flex:1;min-width:58px;background:#222a33;color:#e8edf2;border:1px solid #2b3340;
+  border-radius:6px;padding:6px 4px;font-size:12px;cursor:pointer}
+.date-row button:hover{background:#2c3640}
+.date-row button.active{background:#ffb53d;color:#1a1205;border-color:#ffb53d;font-weight:700}
 .readout{display:flex;gap:14px;margin-top:8px;font-variant-numeric:tabular-nums}
 .readout span{font-size:11px;color:#8d99a8;display:block}
 .readout b{font-size:15px}
@@ -36,14 +42,39 @@ input[type=range]{width:100%}
 .notes{margin-top:10px;font-size:10.5px;color:#7e8a98;line-height:1.6;border-top:1px solid #2b3340;padding-top:8px}
 #errMsg{color:#ff8a8a;font-size:13px;margin-top:10px}
 #bid{font-size:11px;color:#9aa6b4;margin-top:6px;word-break:break-all}
+#compass{position:absolute;top:14px;right:14px;z-index:4;width:56px;height:56px;border-radius:50%;
+  background:rgba(255,255,255,.86);border:1px solid rgba(20,28,35,.22);display:grid;place-items:center;
+  color:#1b2730;font-size:11px;font-weight:700;box-shadow:0 3px 12px rgba(0,0,0,.18)}
+#compassNeedle{position:absolute;width:2px;height:30px;background:#e24b34;transform-origin:50% 25px;border-radius:3px}
+#compassNeedle::after{content:"";position:absolute;top:-5px;left:-4px;border-left:5px solid transparent;
+  border-right:5px solid transparent;border-bottom:9px solid #e24b34}
+#compass span{position:relative;z-index:1;margin-top:32px}
+.dateerr{color:#ff8a8a;font-size:12px;margin-top:6px;min-height:1em}
 </style>
 </head>
 <body>
 <canvas id="c"></canvas>
+<div id="compass" title="北方向"><div id="compassNeedle"></div><span>北</span></div>
 <div id="panel">
   <a class="back" href="index.html?restore=1">← 地図に戻る</a>
   <h1>詳細3Dモード</h1>
   <p class="sub">選択した建物周辺の光と遮蔽を確認</p>
+
+  <label>日付</label>
+  <div id="dateBtns">
+    <div class="date-row">
+      <button data-mo="3" data-d="20">春分</button>
+      <button data-mo="6" data-d="21">夏至</button>
+      <button data-mo="9" data-d="23">秋分</button>
+      <button data-mo="12" data-d="22">冬至</button>
+    </div>
+    <div class="date-row">
+      <button data-preset="today">今日</button>
+      <button data-preset="custom">カスタム</button>
+    </div>
+  </div>
+  <input type="date" id="date" style="display:none" />
+  <div id="dateErr" class="dateerr"></div>
 
   <label for="time">時刻 <span class="val" id="timeLabel">12:00</span></label>
   <input type="range" id="time" min="0" max="24" step="0.25" value="12" />
@@ -66,37 +97,48 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
 /* =========================================================
    detail.html — Three.js 詳細3Dモード
-   同じ GeoJSON(higashikasai_buildings.geojson)を読み、対象建物と
-   周囲 200m の建物を3Dで表示し、太陽方向の光照/遮蔽を可視化。
+   同じ GeoJSON を読み、対象建物と近隣の建物を3Dで表示し、
+   太陽方向の光照/遮蔽を可視化。
    ========================================================= */
-const HARUMI = { lat: 35.6590, lng: 139.8770 };
-const NEIGHBOR_RADIUS = 200; // m
+const DEFAULT_LOCATION = { lat: 35.6590, lng: 139.8770 };
+const NEIGHBOR_RADIUS = 100; // m
 const DEG_LAT = 110540;
-const DEG_LNG = 111320 * Math.cos(HARUMI.lat * Math.PI / 180);
+let sunOrigin = DEFAULT_LOCATION;
 
 const el = id => document.getElementById(id);
+const dateInput = el("date"), dateBtns = el("dateBtns"), dateErr = el("dateErr");
 const timeInput = el("time"), timeLabel = el("timeLabel");
 const altOut = el("alt"), azOut = el("az");
 const statusEl = el("status"), errMsg = el("errMsg"), bidEl = el("bid");
+const compassNeedle = el("compassNeedle");
 
 // URL パラメータ
 const params = new URLSearchParams(location.search);
 const buildingId = params.get("buildingId") || "";
 const geojsonUrl = params.get("geojson") || "./data/higashikasai_buildings.geojson";
-const initDate = params.get("date") || new Date().toISOString().slice(0,10);
 const initTime = parseFloat(params.get("time") || "12");
 timeInput.value = initTime;
-bidEl.textContent = "建物ID: " + (buildingId || "（未指定）");
+bidEl.textContent = "建物を読み込み中…";
 
+const pad2 = n => String(n).padStart(2, "0");
+function todayStr(){ const d=new Date(); return `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}`; }
+function isValidDate(str){
+  const m=/^(\d{4})-(\d{2})-(\d{2})$/.exec(str||""); if(!m) return false;
+  const y=+m[1], mo=+m[2], d=+m[3];
+  const dt=new Date(y, mo-1, d);
+  return dt.getFullYear()===y && dt.getMonth()===mo-1 && dt.getDate()===d;
+}
 function fmtTime(v){ const h=Math.floor(v),m=Math.round((v-h)*60);
   return String(h).padStart(2,"0")+":"+String(m%60).padStart(2,"0"); }
 timeLabel.textContent = fmtTime(initTime);
 
 // 座標変換: lng/lat → ローカル(m)
 function toLocal(lng, lat, ref) {
+  const DEG_LNG = 111320 * Math.cos(ref[1] * Math.PI / 180);
   return [(lng - ref[0]) * DEG_LNG, (lat - ref[1]) * DEG_LAT];
 }
 function dist2d(a, b) {
+  const DEG_LNG = 111320 * Math.cos(b[1] * Math.PI / 180);
   const dx = (a[0]-b[0])*DEG_LNG, dy = (a[1]-b[1])*DEG_LAT;
   return Math.sqrt(dx*dx+dy*dy);
 }
@@ -124,13 +166,12 @@ const camera = new THREE.PerspectiveCamera(50, window.innerWidth/window.innerHei
 // 進入前の地図視角(zoom/pitch/bearing)を sessionStorage から読み、初期カメラに反映
 let _entry={bearing:0,pitch:45,zoom:18};
 try{ const st=JSON.parse(sessionStorage.getItem("sunmap")||"{}");
-  console.log("🟢 detail.html 読取 mapViewState:", st);
   if(st&&typeof st.bearing==="number"){
     _entry.bearing=st.bearing;
     _entry.pitch = (st.pitch!=null)?st.pitch:45;
     _entry.zoom  = (st.zoom!=null)?st.zoom:18;
-  } }catch(e){ console.warn("detail 読取失敗:",e); }
-console.log("🟢 detail 初期カメラ採用値:", _entry);
+    if(Array.isArray(st.center)) sunOrigin = { lng: st.center[0], lat: st.center[1] };
+  } }catch(e){}
 (function initCam(){
   // zoom が大きいほどカメラを近づける（zoom17→240m, 18→150m, 19→95m 目安）
   const D = Math.max(70, Math.min(600, 240 * Math.pow(2, 17 - _entry.zoom)));
@@ -149,6 +190,36 @@ controls.mouseButtons = {
   MIDDLE: THREE.MOUSE.DOLLY,
   RIGHT: THREE.MOUSE.ROTATE
 };
+
+const initDate = params.get("date") || todayStr();
+dateInput.value = isValidDate(initDate) ? initDate : todayStr();
+
+function markDateActive(btn){
+  dateBtns.querySelectorAll("button").forEach(b=>b.classList.remove("active"));
+  if(btn) btn.classList.add("active");
+}
+function applyDate(str, btn){
+  if(!isValidDate(str)){ dateErr.textContent="存在しない日付です"; return; }
+  dateErr.textContent="";
+  dateInput.value=str;
+  markDateActive(btn);
+  updateSun();
+}
+dateBtns.addEventListener("click",(e)=>{
+  const b=e.target.closest("button"); if(!b) return;
+  const preset=b.dataset.preset;
+  if(preset==="custom"){
+    dateInput.style.display="block";
+    markDateActive(b);
+    dateInput.focus();
+    return;
+  }
+  dateInput.style.display="none";
+  if(preset==="today"){ applyDate(todayStr(), b); return; }
+  const y=(dateInput.value.split("-")[0]) || String(new Date().getFullYear());
+  applyDate(`${y}-${pad2(+b.dataset.mo)}-${pad2(+b.dataset.d)}`, b);
+});
+dateInput.addEventListener("change",()=>applyDate(dateInput.value, dateBtns.querySelector('[data-preset="custom"]')));
 
 // 地面
 const ground = new THREE.Mesh(
@@ -231,7 +302,7 @@ async function init() {
   // 対象建物のメッシュ
   scene.add(buildMesh(targetFeature, ref, MAT_TARGET));
 
-  // 周辺建物（200m以内）
+  // 周辺建物（対象建物の近傍のみ）
   for (const f of fc.features) {
     if (f === targetFeature) continue;
     const c = centroid(f.geometry.coordinates[0]);
@@ -243,17 +314,17 @@ async function init() {
   }
 
   const tgtH = Number(targetFeature.properties.height)||3;
-  bidEl.textContent = `建物ID: ${buildingId}　高さ: ${tgtH.toFixed(1)}m　周辺: ${neighbors.length}棟`;
+  bidEl.textContent = `高さ: ${tgtH.toFixed(1)}m　周辺: ${neighbors.length}棟`;
   updateSun();
 }
 
 // === 太陽位置 & 遮蔽判定 ===
 function getSun() {
-  const [y,mo,d] = initDate.split("-").map(Number);
+  const [y,mo,d] = dateInput.value.split("-").map(Number);
   const v = parseFloat(timeInput.value);
   const hh = Math.floor(v), mi = Math.round((v-hh)*60);
   const dt = new Date(Date.UTC(y, mo-1, d, hh-9, mi));
-  const p = SunCalc.getPosition(dt, HARUMI.lat, HARUMI.lng);
+  const p = SunCalc.getPosition(dt, sunOrigin.lat, sunOrigin.lng);
   const altDeg = p.altitude * 180 / Math.PI;
   const sunBearing = (p.azimuth * 180 / Math.PI + 180 + 360) % 360;
   return { altDeg, sunBearing };
@@ -326,6 +397,10 @@ window.addEventListener("resize", () => {
 function animate() {
   requestAnimationFrame(animate);
   controls.update();
+  const dx = camera.position.x - controls.target.x;
+  const dz = camera.position.z - controls.target.z;
+  const angle = Math.atan2(dx, dz) * 180 / Math.PI;
+  compassNeedle.style.transform = `rotate(${angle}deg)`;
   renderer.render(scene, camera);
 }
 animate();

@@ -1,150 +1,102 @@
-# 晴海 日当たりマップ — MVP（实数据 / 第一阶段：晴海周边 1km）
+# Tokyo Sunlight Map Demo
 
-用 Project PLATEAU 的真实 3D 都市模型，提取**晴海中心点周边 1km** 的建筑轮廓与高度，
-生成 `data/harumi_buildings.geojson`，网页据日期时间显示建筑阴影。
+Project PLATEAU の建物 GeoJSON を使った、東京向けの日当たりマップ demo です。
+現在は `chuo_harumi` と `edogawa_higashikasai` の 2 dataset を収録しています。
 
-> 本项目**只用真实数据**。不含样本/假数据，不用示例矩形。
-> 没有生成 `harumi_buildings.geojson` 之前，网页会显示明确错误（不会静默空白）。
+## 現在の表示ロジック
 
-## 项目结构
+- 初期表示では建物と影を表示せず、底図だけを表示します。
+- 地図を移動・拡大すると、現在の表示範囲と交差する dataset だけを読み込みます。
+- MapLibre に渡す建物 GeoJSON は現在の表示範囲内の建物だけです。
+- 影計算も現在の表示範囲内の建物だけを対象にします。
+- 低 zoom では影を表示せず、「拡大すると影を表示します」と案内します。
+- 影は Turf.js の union 後の形状だけを表示します。union 失敗時や建物数が多すぎる場合は影を非表示にします。
 
+## Dataset 管理
+
+Dataset は `index.html` 内の `DATASETS` 配列で管理します。将来 23 区に広げるときは、以下の形式で追加します。
+
+```js
+{
+  dataset_id: "koto_toyosu",
+  ward: "江東区",
+  area: "豊洲",
+  label: "江東区 豊洲",
+  bbox: [west, south, east, north],
+  center: [lng, lat],
+  geojson_path: "./data/koto_toyosu_buildings.geojson",
+  fallback_geojson_path: "./data/koto_toyosu_buildings.geojson",
+  address_prefix: "東京都江東区豊洲"
+}
 ```
-project/
-├── index.html                      # 只读 ./data/harumi_buildings.geojson
-├── data/
-│   └── harumi_buildings.geojson    # ← prepare_data.py 生成（初始不存在）
-├── raw/
-│   └── plateau_chuo_citygml.zip    # ← 你下载的 PLATEAU CityGML（放这里）
-├── scripts/
-│   └── prepare_data.py             # 离线：CityGML -> harumi_buildings.geojson
-└── README.md
+
+## ファイル構成
+
+```text
+index.html                         # メイン地図
+detail.html                        # 詳細3Dモード
+data/harumi_buildings.geojson
+data/higashikasai_buildings.geojson
+scripts/prepare_data.py            # 既存の建物抽出スクリプト
+scripts/extract_structures.py      # brid / tran 調査用の準備スクリプト
+raw/README.txt
 ```
 
----
+`raw/*.zip` は multi-GB の PLATEAU 原始データなので Git 管理しません。
 
-## 1. 下载 PLATEAU 数据
+## ローカル確認
 
-- **数据集名称**：3D都市モデル（Project PLATEAU）東京都中央区（13102）／2023年度
-- **下载页面**：
-  - G空间信息中心：https://www.geospatial.jp/ckan/dataset/plateau-13102-chuo-ku-2023
-  - 或地图入口：https://www.mlit.go.jp/plateau/open-data/ → 点「中央区」
-- **下载哪个**：下载 **CityGML**（建築物モデル / bldg）。
-  **不要用 3D Tiles** —— 3D Tiles 是网格几何，没有干净的「轮廓 + 高度」属性，不适合本用途。
-- **放到哪里**：把下载的 zip **重命名为 `plateau_chuo_citygml.zip`**，放到 `raw/` 目录：
-  ```
-  project/raw/plateau_chuo_citygml.zip
-  ```
-  （脚本会直接读 zip，无需解压。zip 内建筑文件位于 `udx/bldg/*.gml`。）
-
-> 晴海 1km 覆盖的三次网格：`53393672 / 53393673 / 53393682 / 53393683 / 53393692 / 53393693`
-> （中心 `53393682`）。脚本会自动只读这些网格的 GML 来加速；匹配不到则读取全部 bldg。
-
----
-
-## 2. 运行 prepare_data.py
+`file://` では GeoJSON を fetch できないため、静的サーバで開きます。
 
 ```bash
-cd project
-pip install lxml
-python scripts/prepare_data.py
+python3 -m http.server 4173
 ```
 
-脚本会：读取 CityGML → 只保留晴海中心 1km 内建筑 → 提取真实 footprint 与
-`measuredHeight`（**无高度的建筑直接跳过，不估算**）→ 写出 `data/harumi_buildings.geojson`。
+ブラウザで `http://localhost:4173/` を開きます。
 
-运行时会打印日志，例如：
+## GitHub Pages
 
+この demo は GitHub Pages で公開できます。Build command は不要で、公開元は repository root です。
+
+## 構造物データの準備
+
+PLATEAU の原始 zip には `brid` と `tran` が含まれる場合があります。将来、橋梁・道路高架・歩道橋などを日照遮蔽物として使うため、建物 dataset とは別に `structures.geojson` を用意する想定です。
+
+想定 schema:
+
+```json
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "structure_type": "bridge | elevated_road | pedestrian_bridge | unknown",
+        "height": null,
+        "height_source": "measuredHeight | lod geometry | unknown",
+        "source_dataset": "plateau module and mesh code"
+      },
+      "geometry": {}
+    }
+  ]
+}
 ```
-=========== 处理日志 ===========
-总建筑数      : 38214
-范围内建筑数  : 1027 (晴海中心 1000m 以内)
-有高度建筑数  : 1019
-输出建筑数    : 1019
-================================
-[完成] 已写出 1019 栋真实建筑 -> data/harumi_buildings.geojson
-```
 
-（具体数字取决于数据。若「输出建筑数 = 0」脚本会报错中止，不会写出空/假数据。）
-
-晴海中心点/半径可在脚本顶部修改：`HARUMI_LAT / HARUMI_LON / RADIUS_M`。
-
----
-
-## 3. 确认生成是否成功
+現在の `scripts/extract_structures.py` は、信頼できない形状や高さを生成しないための調査用です。
 
 ```bash
-# 文件存在且非空
-ls -la data/harumi_buildings.geojson
-
-# 是 FeatureCollection、建筑数 > 0、每栋有 height
-python3 - <<'PY'
-import json
-fc=json.load(open("data/harumi_buildings.geojson",encoding="utf-8"))
-n=len(fc["features"])
-hash=sum(1 for f in fc["features"] if f["properties"].get("height",0)>0)
-print("type:",fc["type"],"| 建筑数:",n,"| 有height:",hash)
-print("示例:",fc["features"][0]["properties"])
-PY
+python3 scripts/extract_structures.py raw/plateau_chuo_citygml.zip
 ```
 
-本地预览（**不要双击打开**，`file://` 无法 fetch）：
+次の調査事項:
 
-```bash
-npx serve .          # 然后浏览器打开提示的地址
-```
+- `brid` の footprint / height を安定して抽出できるか
+- `tran` から道路高架・鉄道高架・歩道橋を分類できる属性があるか
+- 構造物を建物とは別 source として表示し、影計算に加える境界条件
 
-页面左上「调试信息」应显示：GeoJSON `OK`、建物数 > 0、height有 > 0、影polygon数 > 0。
-若显示红色错误框，按提示处理（多半是数据未生成或用了 `file://`）。
+## MVP の制限
 
----
-
-## 4. 部署到 Netlify
-
-只部署**静态文件**，不依赖 Python（Python 仅离线生成数据时用）。
-
-**务必先在本地跑完 prepare_data.py，确认 `data/harumi_buildings.geojson` 已生成**，再部署。
-
-### Netlify Drop（最简单）
-1. 准备一个只含以下内容的文件夹（**只要 index.html 和 data/**）：
-   ```
-   index.html
-   data/harumi_buildings.geojson
-   ```
-2. 打开 https://app.netlify.com/drop ，把该文件夹拖进去，几秒得到 URL。
-
-> `scripts/` 和 `raw/` **不需要**上传（Netlify 上不运行 Python）。
-> 上传 `raw/`（CityGML 体积大）只会拖慢部署，没有意义。
-
-### Netlify（Git 连接）
-- Build command：留空
-- Publish directory：项目根（含 index.html 与 data/）
-- 确保 `data/harumi_buildings.geojson` 已提交到仓库。
-
----
-
-## 限制（MVP 取舍）
-
-- 影是简化模型：建筑沿太阳反方向平移 footprint 后取凸包（矩形精确，凹形略高估）。
-- 影は重なりで濃くならないよう turf.js の union で1つに結合してから描画する。
-- 投影到地面（标高 0），不考虑地形起伏、相邻建筑遮挡、屋顶形状。
-- 时刻按日本时间 JST 处理。
-- 几何只取 `bldg:Building` 自身；极少数仅在 `BuildingPart` 上有几何的建筑可能被略过。
-
-## 表示モードについて（メイン地図 / 詳細3D）
-
-- **メイン地図 `index.html`** … MapLibre GL JS による軽量モード。
-  建物の2D/3D表示、地面の影、太陽点、明るさ変化、時刻スライダー、節気切替などを行う。
-  普段の確認はこちらを使う。
-- **詳細3Dモード `detail.html`** … 将来の **CesiumJS** による詳細3Dモード。
-  メイン地図のクリックで開く建物 popup の「この建物の光を見る」から、
-  `detail.html?buildingId=...` として遷移する。
-- **現状の `detail.html` は入口と骨格のみ**：全画面の Cesium コンテナ、時刻スライダー、
-  太陽高度角/方位角の表示、「地図に戻る」ボタン、buildingId の受け取りまで。
-  まだ実際の建物3Dは読み込まず、画面に「準備中」と明示している。
-- **今後の準備物**：詳細3Dで建物を表示するには **PLATEAU の 3D Tiles（`tileset.json` と
-  タイル一式）** が必要。中央区データセットの「3D Tiles, MVT」zip を別途用意し、
-  `detail.html` 側で `Cesium3DTileset` として読み込む実装を追加する予定。
-  （メイン地図は MapLibre のままで、Cesium には置き換えない。）
-
-> buildingId は現在 `prepare_data.py` が出力する `gml_id`（安定ID）を使用。
-> 万一 gml_id が無いデータでは暫定的に feature index を使うが、将来は安定IDに統一する。
+- 影は建物 footprint を太陽反対方向へ伸ばした簡易モデルです。
+- 地形起伏、屋根形状、階別の日照は厳密には扱いません。
+- 時刻は JST として扱います。
+- `prepare_data.py` は既存の建物抽出用スクリプトとして維持しています。

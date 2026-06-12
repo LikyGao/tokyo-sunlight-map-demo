@@ -30,7 +30,6 @@
   /* === 追加: 明るさ変化のオーバーレイ === */
   #brightness{position:absolute;inset:0;z-index:2;pointer-events:none;
     background:transparent;transition:background .35s ease}
-  #shadowCanvas{position:absolute;inset:0;z-index:1;pointer-events:none}
   /* === 追加: ボタン群 === */
   .btns{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
   .btns button,.date-row button{flex:1;min-width:58px;background:#222a33;color:#e8edf2;border:1px solid #2b3340;
@@ -67,7 +66,6 @@
 </head>
 <body>
 <div id="map"></div>
-<canvas id="shadowCanvas"></canvas>
 <div id="brightness"></div>
 <div id="panel">
   <h1>東京 日当たりマップ</h1>
@@ -179,12 +177,11 @@ let brightnessOn = true;
 let mode3d = false;
 let currentAreaForSearch = null;
 let viewRefreshTimer = null;
-let shadowRedrawPending = false;
 
 const el = (id) => document.getElementById(id);
 const dateInput = el("date"), timeInput = el("time"), timeLabel = el("timeLabel");
 const altOut = el("alt"), azOut = el("az");
-const errBox = el("errBox"), brightness = el("brightness"), shadowCanvas = el("shadowCanvas");
+const errBox = el("errBox"), brightness = el("brightness");
 const dateBtns = el("dateBtns"), dateErr = el("dateErr");
 const selKu = el("selKu"), selArea = el("selArea"), currentAreaEl = el("currentArea");
 const areaNotice = el("areaNotice");
@@ -319,7 +316,7 @@ function setEmptyView(message){
   BUILDINGS = turf.featureCollection([]);
   VIEW_SHADOW_SRC = [];
   map.getSource("buildings").setData(BUILDINGS);
-  clearShadowCanvas();
+  map.getSource("shadows").setData(turf.featureCollection([]));
   clearHighlight();
   updateAreaText();
   showNotice(message === undefined ? "この地域の建物データはまだありません" : message, message ? "error" : "");
@@ -359,7 +356,7 @@ async function refreshView(opts={}){
       }
       recompute(true);
     } else {
-      clearShadowCanvas();
+      map.getSource("shadows").setData(turf.featureCollection([]));
       showNotice("この地域の建物データはまだありません", "error");
     }
   }catch(e){
@@ -379,88 +376,21 @@ function scheduleRefreshView(){
   clearTimeout(viewRefreshTimer);
   viewRefreshTimer = setTimeout(()=>refreshView(), 120);
 }
-function scheduleShadowRedraw(){
-  if(shadowRedrawPending) return;
-  shadowRedrawPending = true;
-  requestAnimationFrame(()=>{
-    shadowRedrawPending = false;
-    if(BUILDINGS.features.length) recompute();
-  });
-}
-
-function resizeShadowCanvas(){
-  const rect = map.getCanvas().getBoundingClientRect();
-  const dpr = Math.min(window.devicePixelRatio || 1, 2);
-  const w = Math.max(1, Math.round(rect.width * dpr));
-  const h = Math.max(1, Math.round(rect.height * dpr));
-  if(shadowCanvas.width !== w || shadowCanvas.height !== h){
-    shadowCanvas.width = w;
-    shadowCanvas.height = h;
-    shadowCanvas.style.width = rect.width + "px";
-    shadowCanvas.style.height = rect.height + "px";
-  }
-  return { width: rect.width, height: rect.height, dpr };
-}
-
-function clearShadowCanvas(){
-  const ctx = shadowCanvas.getContext("2d");
-  ctx.setTransform(1,0,0,1,0,0);
-  ctx.clearRect(0,0,shadowCanvas.width,shadowCanvas.height);
-}
-
-function drawShadowMask(rings){
-  const { width, height, dpr } = resizeShadowCanvas();
-  const mask = document.createElement("canvas");
-  mask.width = shadowCanvas.width;
-  mask.height = shadowCanvas.height;
-  const maskCtx = mask.getContext("2d");
-  maskCtx.setTransform(dpr,0,0,dpr,0,0);
-  maskCtx.fillStyle = "#000";
-  maskCtx.beginPath();
-  for(const ring of rings){
-    if(!ring || ring.length < 3) continue;
-    const p0 = map.project(ring[0]);
-    maskCtx.moveTo(p0.x, p0.y);
-    for(let i=1;i<ring.length;i++){
-      const p = map.project(ring[i]);
-      maskCtx.lineTo(p.x, p.y);
-    }
-    maskCtx.closePath();
-  }
-  maskCtx.fill();
-
-  const ctx = shadowCanvas.getContext("2d");
-  ctx.setTransform(dpr,0,0,dpr,0,0);
-  ctx.clearRect(0,0,width,height);
-  ctx.save();
-  ctx.globalAlpha = 0.45;
-  ctx.fillStyle = "#16335f";
-  ctx.fillRect(0,0,width,height);
-  ctx.globalAlpha = 1;
-  ctx.globalCompositeOperation = "destination-in";
-  ctx.drawImage(mask,0,0,width,height);
-  ctx.restore();
-}
 
 function updateShadows(sun){
   sun = sun || computeSun();
-  if(mode3d){
-    clearShadowCanvas();
-    if(BUILDINGS.features.length) showNotice("影は2D表示で確認できます");
-    return;
-  }
   const zoom = map.getZoom();
-  if(zoom < SHADOW_ZOOM){
-    clearShadowCanvas();
+  if(!mode3d && zoom < SHADOW_ZOOM){
+    map.getSource("shadows").setData(turf.featureCollection([]));
     if(BUILDINGS.features.length) showNotice("拡大すると影を表示します");
     return;
   }
   if(!BUILDINGS.features.length){
-    clearShadowCanvas();
+    map.getSource("shadows").setData(turf.featureCollection([]));
     return;
   }
 
-  const shadowRings=[];
+  const shadows=[];
   if(sun.altDeg>0.5){
     const bearRad=sun.shadowBearing*Math.PI/180;
     const sinB=Math.sin(bearRad), cosB=Math.cos(bearRad);
@@ -477,19 +407,19 @@ function updateShadows(sun){
       const pts=[];
       for(const p of ring){ pts.push([p[0],p[1]]); pts.push([p[0]+dx,p[1]+dy]); }
       const hull=convexHull(pts);
-      if(hull) shadowRings.push(hull);
+      if(hull) shadows.push(turf.polygon([hull]));
     }
   }
-  if(shadowRings.length===0){
-    clearShadowCanvas();
+  if(shadows.length===0){
+    map.getSource("shadows").setData(turf.featureCollection([]));
     showNotice("");
     return;
   }
   try{
-    drawShadowMask(shadowRings);
+    map.getSource("shadows").setData(turf.featureCollection(shadows));
     showNotice("");
   }catch(e){
-    clearShadowCanvas();
+    map.getSource("shadows").setData(turf.featureCollection([]));
     showNotice("影の計算に失敗しました。表示範囲を調整してください", "error");
   }
 }
@@ -538,6 +468,9 @@ const map=new maplibregl.Map({
 map.addControl(new maplibregl.NavigationControl(),"top-right");
 
 function initLayers(){
+  map.addSource("shadows",{type:"geojson",data:turf.featureCollection([])});
+  map.addLayer({id:"shadow-fill",type:"fill",source:"shadows",
+    paint:{"fill-color":"#16335f","fill-opacity":0.35}});
   map.addSource("buildings",{type:"geojson",data:turf.featureCollection([])});
   map.addLayer({id:"bldg-fill",type:"fill",source:"buildings",
     paint:{"fill-color":HEIGHT_COLOR,"fill-opacity":0.42}});
@@ -591,12 +524,7 @@ function setMode(is3d, skipCamera){
   map.setLayoutProperty("bldg-extrusion","visibility", is3d?"visible":"none");
   map.setLayoutProperty("bldg-fill","visibility", is3d?"none":"visible");
   map.setLayoutProperty("highlight-extrusion","visibility", is3d?"visible":"none");
-  shadowCanvas.style.display = is3d ? "none" : "block";
-  if(is3d){
-    clearShadowCanvas();
-    if(BUILDINGS.features.length) showNotice("影は2D表示で確認できます");
-  }
-  else recompute();
+  recompute();
   el("b3d").classList.toggle("active", is3d);
   el("b2d").classList.toggle("active", !is3d);
   if(skipCamera) return;  // 復元時はカメラを動かさない（jumpTo の pitch/bearing を維持）
@@ -607,7 +535,6 @@ function setMode(is3d, skipCamera){
 timeInput.addEventListener("input",()=>{ timeLabel.textContent=fmtTime(parseFloat(timeInput.value));
   clearTimeout(window._t); window._t=setTimeout(()=>recompute(),80); });
 timeInput.addEventListener("change",()=>recompute());
-map.on("move",()=>scheduleShadowRedraw());
 map.on("resize",()=>recompute());
 map.on("moveend",()=>scheduleRefreshView());
 

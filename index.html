@@ -444,6 +444,11 @@ function drawShadowMask(rings){
 
 function updateShadows(sun){
   sun = sun || computeSun();
+  if(mode3d){
+    clearShadowCanvas();
+    if(BUILDINGS.features.length) showNotice("影は2D表示で確認できます");
+    return;
+  }
   const zoom = map.getZoom();
   if(zoom < SHADOW_ZOOM){
     clearShadowCanvas();
@@ -586,6 +591,12 @@ function setMode(is3d, skipCamera){
   map.setLayoutProperty("bldg-extrusion","visibility", is3d?"visible":"none");
   map.setLayoutProperty("bldg-fill","visibility", is3d?"none":"visible");
   map.setLayoutProperty("highlight-extrusion","visibility", is3d?"visible":"none");
+  shadowCanvas.style.display = is3d ? "none" : "block";
+  if(is3d){
+    clearShadowCanvas();
+    if(BUILDINGS.features.length) showNotice("影は2D表示で確認できます");
+  }
+  else recompute();
   el("b3d").classList.toggle("active", is3d);
   el("b2d").classList.toggle("active", !is3d);
   if(skipCamera) return;  // 復元時はカメラを動かさない（jumpTo の pitch/bearing を維持）

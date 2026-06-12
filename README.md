@@ -10,7 +10,7 @@ Project PLATEAU の建物 GeoJSON を使った、東京向けの日当たりマ�
 - MapLibre に渡す建物 GeoJSON は現在の表示範囲内の建物だけです。
 - 影計算も現在の表示範囲内の建物だけを対象にします。
 - 低 zoom では影を表示せず、「拡大すると影を表示します」と案内します。
-- 影は Turf.js の union 後の形状だけを表示します。union 失敗時や建物数が多すぎる場合は影を非表示にします。
+- 影は Canvas mask で描画します。重なった影も同じ濃さで表示され、Turf.js の union は使いません。
 
 ## Dataset 管理
 
@@ -99,6 +99,7 @@ python3 scripts/extract_structures.py raw/plateau_chuo_citygml.zip
 ## MVP の制限
 
 - 影は建物 footprint を太陽反対方向へ伸ばした簡易モデルです。
+- 影の重なりは Canvas mask で一度だけ着色するため、重複部分が濃くならないようにしています。
 - 地形起伏、屋根形状、階別の日照は厳密には扱いません。
 - 時刻は JST として扱います。
 - `prepare_data.py` は既存の建物抽出用スクリプトとして維持しています。

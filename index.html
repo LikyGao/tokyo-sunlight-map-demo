@@ -167,11 +167,16 @@ const DATASET_LOAD_ZOOM = 14.5;
 const SHADOW_ZOOM = 15;
 const DETAIL_ZOOM = 18.5;
 const MAX_SHADOW_M = 300;
+const TILE_CACHE_LIMIT = 140;
+const ANALYSIS_RADIUS_M = 500;
+const MAX_VISIBLE_BUILDINGS = 4500;
 
 let BUILDINGS = turf.featureCollection([]);
 let VIEW_SHADOW_SRC = [];
 let loadedDatasets = new Map();
+let loadedTiles = new Map();
 let activeDatasets = [];
+let activeTiles = [];
 let highlightedFeature = null;
 let brightnessOn = true;
 let mode3d = false;
@@ -233,6 +238,18 @@ function convexHull(pts){
 function boundsToBox(bounds, margin=0){
   return [bounds.getWest()-margin, bounds.getSouth()-margin, bounds.getEast()+margin, bounds.getNorth()+margin];
 }
+function metersToLngLatDelta(lat, meters){
+  const latRad = lat * Math.PI / 180;
+  const lngMeters = Math.max(1, 111320 * Math.cos(latRad));
+  return { lng: meters / lngMeters, lat: meters / 110540 };
+}
+function boxAround(lon, lat, radiusM){
+  const d = metersToLngLatDelta(lat, radiusM);
+  return [lon - d.lng, lat - d.lat, lon + d.lng, lat + d.lat];
+}
+function analysisBoxForCenter(center, radiusM=ANALYSIS_RADIUS_M){
+  return boxAround(center.lng, center.lat, radiusM);
+}
 function boxesIntersect(a,b){
   return a[0] <= b[2] && a[2] >= b[0] && a[1] <= b[3] && a[3] >= b[1];
 }
@@ -242,8 +259,22 @@ function featureInBox(feature, box){
   return boxesIntersect(bb, box);
 }
 function centroidCoords(feature){
-  try{ return turf.centroid(feature).geometry.coordinates; }
+  if(feature._centroid) return feature._centroid;
+  try{ feature._centroid = turf.centroid(feature).geometry.coordinates; return feature._centroid; }
   catch(e){ return feature.geometry.coordinates[0][0]; }
+}
+function haversine(lon1, lat1, lon2, lat2){
+  const r = 6371000;
+  const p1 = lat1 * Math.PI / 180;
+  const p2 = lat2 * Math.PI / 180;
+  const dp = (lat2 - lat1) * Math.PI / 180;
+  const dl = (lon2 - lon1) * Math.PI / 180;
+  const a = Math.sin(dp/2) ** 2 + Math.cos(p1) * Math.cos(p2) * Math.sin(dl/2) ** 2;
+  return 2 * r * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+}
+function distanceFromCenter(feature, center){
+  const c = centroidCoords(feature);
+  return haversine(center.lng, center.lat, c[0], c[1]);
 }
 function datasetById(id){ return DATASETS.find(d=>d.dataset_id===id) || null; }
 function datasetForPoint(lon, lat){
@@ -260,13 +291,55 @@ function selectDataset(dataset){
   currentAreaForSearch = dataset;
 }
 async function loadDatasetManifest(){
+  for(const url of ["./data/tile-datasets.json", "./data/datasets.json"]){
+    try{
+      const r = await fetch(url, {cache:"no-cache"});
+      if(!r.ok) throw new Error("HTTP " + r.status);
+      const manifest = await r.json();
+      if(Array.isArray(manifest.datasets) && manifest.datasets.length){
+        DATASETS = manifest.datasets;
+        return;
+      }
+    }catch(e){}
+  }
+  DATASETS = DEFAULT_DATASETS;
+}
+
+function normalizeFeature(f, dataset, index, tile){
+  f.properties = f.properties || {};
+  f.properties.dataset_id = dataset.dataset_id;
+  f.properties.dataset_label = dataset.label;
+  f.properties.tile_id = tile ? tile.tile_id : "";
+  f.properties.tile_geojson_path = tile ? tile.geojson_path : "";
+  f.properties.feature_index = index;
+  f.properties.height = Number(f.properties.height ?? f.properties.measuredHeight) || 0;
+  f._bbox = turf.bbox(f);
+  return f;
+}
+
+async function fetchTile(dataset, tile){
+  const key = dataset.dataset_id + "/" + tile.tile_id;
+  if(loadedTiles.has(key)) return loadedTiles.get(key);
+  let r;
   try{
-    const r = await fetch("./data/datasets.json", {cache:"no-cache"});
+    r = await fetch(tile.geojson_path, {cache:"no-cache"});
     if(!r.ok) throw new Error("HTTP " + r.status);
-    const manifest = await r.json();
-    if(Array.isArray(manifest.datasets) && manifest.datasets.length) DATASETS = manifest.datasets;
   }catch(e){
-    DATASETS = DEFAULT_DATASETS;
+    throw new Error("データ取得に失敗しました。静的サーバで開いてください。");
+  }
+  const fc = await r.json();
+  const features = (fc.features || []).map((f, index)=>normalizeFeature(f, dataset, index, tile));
+  const cached = { dataset, tile, key, fc: turf.featureCollection(features) };
+  loadedTiles.set(key, cached);
+  return cached;
+}
+
+function trimTileCache(activeKeys){
+  if(loadedTiles.size <= TILE_CACHE_LIMIT) return;
+  for(const key of loadedTiles.keys()){
+    if(activeKeys.has(key)) continue;
+    loadedTiles.delete(key);
+    if(loadedTiles.size <= TILE_CACHE_LIMIT) break;
   }
 }
 
@@ -281,15 +354,7 @@ async function fetchDataset(dataset){
   }
   if(!r.ok) throw new Error("データの読み込みに失敗しました");
   const fc = await r.json();
-  const features = (fc.features || []).map((f, index)=>{
-    f.properties = f.properties || {};
-    f.properties.dataset_id = dataset.dataset_id;
-    f.properties.dataset_label = dataset.label;
-    f.properties.feature_index = index;
-    f.properties.height = Number(f.properties.height ?? f.properties.measuredHeight) || 0;
-    f._bbox = turf.bbox(f);
-    return f;
-  });
+  const features = (fc.features || []).map((f, index)=>normalizeFeature(f, dataset, index, null));
   const cached = { dataset, fc: turf.featureCollection(features) };
   loadedDatasets.set(dataset.dataset_id, cached);
   return cached;
@@ -298,13 +363,40 @@ async function fetchDataset(dataset){
 async function ensureDatasetsForView(){
   if(map.getZoom() < DATASET_LOAD_ZOOM){
     activeDatasets = [];
+    activeTiles = [];
     return [];
   }
-  const viewBox = boundsToBox(map.getBounds());
-  const intersecting = DATASETS.filter(d=>boxesIntersect(viewBox, d.bbox));
-  await Promise.all(intersecting.map(fetchDataset));
+  const loadBox = analysisBoxForCenter(map.getCenter());
+  const intersecting = DATASETS.filter(d=>boxesIntersect(loadBox, d.bbox));
+  const tileLoads = [];
+  const tileList = [];
+  for(const dataset of intersecting){
+    if(Array.isArray(dataset.tiles) && dataset.tiles.length){
+      const visibleTiles = dataset.tiles.filter(tile=>boxesIntersect(loadBox, tile.bbox));
+      for(const tile of visibleTiles){
+        tileList.push({dataset, tile});
+        tileLoads.push(fetchTile(dataset, tile));
+      }
+    } else {
+      tileLoads.push(fetchDataset(dataset));
+    }
+  }
+  await Promise.all(tileLoads);
   activeDatasets = intersecting;
+  activeTiles = tileList;
+  trimTileCache(new Set(tileList.map(({dataset, tile})=>dataset.dataset_id + "/" + tile.tile_id)));
   return intersecting;
+}
+
+async function ensureDatasetForPoint(dataset, lon, lat){
+  if(!dataset) return;
+  if(Array.isArray(dataset.tiles) && dataset.tiles.length){
+    const pointBox = boxAround(lon, lat, ANALYSIS_RADIUS_M);
+    const tiles = dataset.tiles.filter(tile=>boxesIntersect(pointBox, tile.bbox));
+    await Promise.all(tiles.map(tile=>fetchTile(dataset, tile)));
+  } else {
+    await fetchDataset(dataset);
+  }
 }
 
 function updateAreaText(){
@@ -335,15 +427,35 @@ async function refreshView(opts={}){
       setEmptyView("この地域の建物データはまだありません");
       return;
     }
-    const viewBox = boundsToBox(map.getBounds());
-    const features = [];
+    const center = map.getCenter();
+    const analysisBox = analysisBoxForCenter(center);
+    const candidates = [];
+    const addCandidate = (feature)=>{
+      if(!featureInBox(feature, analysisBox)) return;
+      const distance = distanceFromCenter(feature, center);
+      if(distance > ANALYSIS_RADIUS_M) return;
+      candidates.push({ feature, distance });
+    };
     for(const dataset of datasets){
-      const cached = loadedDatasets.get(dataset.dataset_id);
-      if(!cached) continue;
-      for(const f of cached.fc.features){
-        if(featureInBox(f, viewBox)) features.push(f);
+      if(Array.isArray(dataset.tiles) && dataset.tiles.length){
+        for(const tile of dataset.tiles){
+          if(!boxesIntersect(analysisBox, tile.bbox)) continue;
+          const cached = loadedTiles.get(dataset.dataset_id + "/" + tile.tile_id);
+          if(!cached) continue;
+          for(const f of cached.fc.features){
+            addCandidate(f);
+          }
+        }
+      } else {
+        const cached = loadedDatasets.get(dataset.dataset_id);
+        if(!cached) continue;
+        for(const f of cached.fc.features){
+          addCandidate(f);
+        }
       }
     }
+    candidates.sort((a,b)=>a.distance-b.distance);
+    const features = candidates.slice(0, MAX_VISIBLE_BUILDINGS).map(x=>x.feature);
     BUILDINGS = turf.featureCollection(features);
     VIEW_SHADOW_SRC = features.map(f=>({f, h:Number(f.properties.height)||0})).filter(x=>x.h>0);
     map.getSource("buildings").setData(BUILDINGS);
@@ -369,7 +481,7 @@ function sameFeature(a,b){
   if(!a || !b) return false;
   const ap=a.properties||{}, bp=b.properties||{};
   if(ap.gml_id && bp.gml_id) return ap.gml_id===bp.gml_id;
-  return ap.dataset_id===bp.dataset_id && ap.feature_index===bp.feature_index;
+  return ap.dataset_id===bp.dataset_id && ap.tile_id===bp.tile_id && ap.feature_index===bp.feature_index;
 }
 
 function scheduleRefreshView(){
@@ -665,7 +777,7 @@ async function searchAddress(){
     }
 
     selectDataset(dataset);
-    await fetchDataset(dataset);
+    await ensureDatasetForPoint(dataset, lon, lat);
     map.jumpTo({center:[lon,lat], zoom:DETAIL_ZOOM});
     await refreshView();
     matchBuilding(lon, lat);
@@ -700,7 +812,7 @@ function openBuildingPopup(feature, lngLat){
     buildingId="index-"+idx; // TODO: 安定IDに置き換える
   }
   const dataset = datasetForFeature(feature);
-  const geoUrl=dataset ? dataset.geojson_path : "";
+  const geoUrl=props.tile_geojson_path || (dataset ? dataset.geojson_path : "");
   const url="detail.html?buildingId="+encodeURIComponent(buildingId)
     +"&geojson="+encodeURIComponent(geoUrl)
     +"&date="+encodeURIComponent(dateInput.value)
@@ -726,10 +838,11 @@ function onBldgClick(e){
   if(!fs.length) return;
   const gid=fs[0].properties&&fs[0].properties.gml_id;
   const dsid=fs[0].properties&&fs[0].properties.dataset_id;
+  const tid=fs[0].properties&&fs[0].properties.tile_id;
   const index=Number(fs[0].properties&&fs[0].properties.feature_index);
   const real=BUILDINGS.features.find(f=>
     (gid && f.properties.gml_id===gid) ||
-    (f.properties.dataset_id===dsid && f.properties.feature_index===index)
+    (f.properties.dataset_id===dsid && f.properties.tile_id===tid && f.properties.feature_index===index)
   );
   openBuildingPopup(real||fs[0], e.lngLat);
 }

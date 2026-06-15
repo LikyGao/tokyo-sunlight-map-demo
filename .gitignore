@@ -3,6 +3,13 @@
 # Raw PLATEAU archives are multi-GB and should be downloaded locally when needed.
 raw/*.zip
 
+# Generated full-ward GeoJSON files are too large for GitHub; use data/tiles instead.
+data/*_buildings.geojson
+!data/harumi_buildings.geojson
+!data/higashikasai_buildings.geojson
+data/tile-datasets.*.json
+!data/tile-datasets.json
+
 # Local tooling and temporary files.
 node_modules/
 .venv/

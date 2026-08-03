@@ -63,8 +63,9 @@
   /* === 追加: 日付2行 === */
   .date-row{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
   .panel-toggle{display:none}
+  #mobileTop,#mobileTimeline{display:none}
   @media (max-width: 600px){
-    #panel{top:auto;left:0;bottom:0;width:100%;max-width:none;max-height:min(62dvh,560px);
+    #panel{top:auto;left:0;bottom:calc(104px + env(safe-area-inset-bottom));width:100%;max-width:none;max-height:min(55dvh,500px);
       padding:8px 16px calc(14px + env(safe-area-inset-bottom));border-width:1px 0 0;
       border-radius:16px 16px 0 0;box-shadow:0 -8px 28px rgba(0,0,0,.28);
       transition:max-height .25s ease;padding-top:8px;overscroll-behavior:contain}
@@ -84,15 +85,44 @@
     .tg{min-height:36px}
     .tg input{width:20px;height:20px}
     .readout{justify-content:space-between;padding:0 8px}
-    .maplibregl-ctrl-top-right{top:calc(8px + env(safe-area-inset-top));right:8px}
+    .maplibregl-ctrl-top-right{top:calc(112px + env(safe-area-inset-top));right:8px}
     .maplibregl-popup{max-width:calc(100vw - 24px)!important}
     .maplibregl-popup-content{padding:14px 16px}
+    #panelContent .search-section,#panelContent .mode-buttons,#panelContent .time-section{display:none}
+    #mobileTop{display:block;position:fixed;z-index:8;top:calc(10px + env(safe-area-inset-top));left:12px;right:12px;pointer-events:none}
+    #mobileTop .mobile-search{display:flex;gap:8px;max-width:560px;pointer-events:auto}
+    #mobileTop input{width:100%;min-width:0;height:48px;padding:0 16px;border:0;border-radius:24px;
+      background:#fff;color:#1f2933;font-size:16px;box-shadow:0 2px 10px rgba(0,0,0,.28);outline:none}
+    #mobileTop input:focus{box-shadow:0 0 0 3px rgba(255,181,61,.55),0 2px 10px rgba(0,0,0,.28)}
+    #mobileTop button{height:48px;border:0;border-radius:24px;padding:0 17px;background:#fff;color:#26313d;
+      font-weight:700;box-shadow:0 2px 10px rgba(0,0,0,.28);touch-action:manipulation}
+    #mobileMode{display:flex;justify-content:flex-end;gap:8px;margin-top:10px;pointer-events:auto}
+    #mobileMode button{min-width:58px;height:42px;padding:0 13px;font-size:13px}
+    #mobileMode button.active{background:#ffb53d;color:#1a1205}
+    #mobileSearchMsg{margin:5px 60px 0 16px;color:#fff;font-size:11px;text-shadow:0 1px 3px #000;min-height:1em}
+    #mobileTimeline{display:block;position:fixed;z-index:9;left:0;right:0;bottom:0;
+      padding:10px 16px calc(12px + env(safe-area-inset-bottom));background:rgba(24,28,34,.96);
+      border-top:1px solid #394452;box-shadow:0 -5px 20px rgba(0,0,0,.25);color:#e8edf2}
+    #mobileTimeline .timeline-head{display:flex;align-items:baseline;justify-content:space-between;font-size:12px;color:#9da9b7}
+    #mobileTimeline .timeline-head strong{color:#ffb53d;font-size:18px;font-variant-numeric:tabular-nums}
+    #mobileTimeline input{display:block;width:100%;height:36px;margin:1px 0 0;accent-color:#ffb53d}
   }
 </style>
 </head>
 <body>
 <div id="map"></div>
 <div id="brightness"></div>
+<div id="mobileTop">
+  <div class="mobile-search">
+    <input type="text" id="mobileSearchInput" aria-label="住所検索" placeholder="住所を検索" />
+    <button id="mobileSearchBtn" type="button">検索</button>
+  </div>
+  <div id="mobileSearchMsg" aria-live="polite"></div>
+  <div id="mobileMode" aria-label="地図表示モード">
+    <button id="mobileB3d" class="active" type="button" aria-pressed="true">3D</button>
+    <button id="mobileB2d" type="button" aria-pressed="false">2D</button>
+  </div>
+</div>
 <div id="panel">
   <button id="panelToggle" class="panel-toggle" type="button" aria-expanded="true" aria-controls="panelContent">
     <span>表示・検索設定</span><span class="toggle-icon" aria-hidden="true">▼</span>
@@ -106,12 +136,14 @@
   <div id="currentArea">表示中の地域：未選択</div>
   <div id="areaNotice"></div>
 
+  <div class="search-section">
   <label>住所検索（現在の地域内）</label>
   <div class="search-row">
     <input type="text" id="searchInput" placeholder="例：1-1-1、100-0001" />
     <button id="searchBtn">検索</button>
   </div>
   <div id="searchMsg"></div>
+  </div>
 
   <label>日付</label>
   <div id="dateBtns">
@@ -129,19 +161,19 @@
   <input type="date" id="date" style="display:none" />
   <div id="dateErr" class="dateerr"></div>
 
-  <label for="time">時刻 <span class="val" id="timeLabel">12:00</span></label>
+  <div class="time-section"><label for="time">時刻 <span class="val" id="timeLabel">12:00</span></label>
   <input type="range" id="time" min="0" max="24" step="0.25" value="12" />
 
   <div class="readout">
     <div><span>太陽高度角</span><b id="alt">–</b></div>
     <div><span>太陽方位角</span><b id="az">–</b></div>
   </div>
+  </div>
 
   <!-- 表示モード -->
-  <div class="btns">
-    <button id="b2d" class="active">2D表示</button>
-    <button id="b3d">3D表示</button>
-    <button id="bnorth">北向きに戻す</button>
+  <div class="btns mode-buttons">
+    <button id="b3d" class="active">3D表示</button>
+    <button id="b2d">2D表示</button>
   </div>
 
   <!-- トグル -->
@@ -163,6 +195,10 @@
     ※ 太陽位置は方向を分かりやすく示すための可視化です。実際の距離・大きさを表すものではありません。
   </div>
   </div>
+</div>
+<div id="mobileTimeline" aria-label="時刻設定">
+  <div class="timeline-head"><span>時刻</span><strong id="mobileTimeLabel">12:00</strong><span>光と影を確認</span></div>
+  <input type="range" id="mobileTime" min="0" max="24" step="0.25" value="12" aria-label="時刻" />
 </div>
 
 <script>
@@ -210,7 +246,7 @@ let activeDatasets = [];
 let activeTiles = [];
 let highlightedFeature = null;
 let brightnessOn = true;
-let mode3d = false;
+let mode3d = true;
 let currentAreaForSearch = null;
 let viewRefreshTimer = null;
 
@@ -222,12 +258,21 @@ const dateBtns = el("dateBtns"), dateErr = el("dateErr");
 const selKu = el("selKu"), selArea = el("selArea"), currentAreaEl = el("currentArea");
 const areaNotice = el("areaNotice");
 const searchInput = el("searchInput"), searchBtn = el("searchBtn"), searchMsg = el("searchMsg");
+const mobileSearchInput = el("mobileSearchInput"), mobileSearchBtn = el("mobileSearchBtn"), mobileSearchMsg = el("mobileSearchMsg");
+const mobileTime = el("mobileTime"), mobileTimeLabel = el("mobileTimeLabel");
 const panel = el("panel"), panelToggle = el("panelToggle");
+
+new MutationObserver(()=>{ mobileSearchMsg.textContent=searchMsg.textContent; })
+  .observe(searchMsg,{childList:true,characterData:true,subtree:true});
 
 panelToggle.addEventListener("click",()=>{
   const collapsed=panel.classList.toggle("panel-collapsed");
   panelToggle.setAttribute("aria-expanded", String(!collapsed));
 });
+if(matchMedia("(max-width: 600px)").matches){
+  panel.classList.add("panel-collapsed");
+  panelToggle.setAttribute("aria-expanded","false");
+}
 
 const HEIGHT_COLOR = ["step", ["get", "height"], "#3a9d8f", 10, "#3f7fd6", 31, "#e8833a"];
 
@@ -626,7 +671,7 @@ function initLayers(){
   map.addLayer({id:"bldg-line",type:"line",source:"buildings",
     paint:{"line-color":"#6b7888","line-width":0.5,"line-opacity":0.65}});
   map.addLayer({id:"bldg-extrusion",type:"fill-extrusion",source:"buildings",
-    layout:{visibility:"none"},
+    layout:{visibility:"visible"},
     paint:{"fill-extrusion-color":HEIGHT_COLOR,
            "fill-extrusion-height":["get","height"],
            "fill-extrusion-base":0,
@@ -676,14 +721,25 @@ function setMode(is3d, skipCamera){
   recompute();
   el("b3d").classList.toggle("active", is3d);
   el("b2d").classList.toggle("active", !is3d);
+  el("mobileB3d").classList.toggle("active", is3d);
+  el("mobileB2d").classList.toggle("active", !is3d);
+  el("mobileB3d").setAttribute("aria-pressed", String(is3d));
+  el("mobileB2d").setAttribute("aria-pressed", String(!is3d));
   if(skipCamera) return;  // 復元時はカメラを動かさない（jumpTo の pitch/bearing を維持）
   if(is3d) map.easeTo({pitch:60,bearing:-30,duration:500});
   else     map.easeTo({pitch:0,bearing:0,duration:500});
 }
 
 timeInput.addEventListener("input",()=>{ timeLabel.textContent=fmtTime(parseFloat(timeInput.value));
+  mobileTime.value=timeInput.value; mobileTimeLabel.textContent=timeLabel.textContent;
   clearTimeout(window._t); window._t=setTimeout(()=>recompute(),80); });
 timeInput.addEventListener("change",()=>recompute());
+mobileTime.addEventListener("input",()=>{
+  timeInput.value=mobileTime.value;
+  timeLabel.textContent=mobileTimeLabel.textContent=fmtTime(parseFloat(mobileTime.value));
+  clearTimeout(window._t); window._t=setTimeout(()=>recompute(),80);
+});
+mobileTime.addEventListener("change",()=>recompute());
 map.on("resize",()=>recompute());
 map.on("moveend",()=>scheduleRefreshView());
 
@@ -722,7 +778,8 @@ dateInput.addEventListener("change",()=>{
 // 2D / 3D / 北向き
 el("b2d").addEventListener("click",()=>setMode(false));
 el("b3d").addEventListener("click",()=>setMode(true));
-el("bnorth").addEventListener("click",()=>map.easeTo({bearing:0,duration:500}));
+el("mobileB2d").addEventListener("click",()=>setMode(false));
+el("mobileB3d").addEventListener("click",()=>setMode(true));
 
 // トグル
 el("tgBright").addEventListener("change",(e)=>{ brightnessOn=e.target.checked; recomputeSunOnly(); });
@@ -777,7 +834,9 @@ function matchBuilding(lon, lat){
 
 // メイン検索フロー: 入力 → normalize → 国土地理院 API → 区域判定 → 建物マッチ
 async function searchAddress(){
-  const raw=searchInput.value.trim();
+  const sourceInput = document.activeElement===mobileSearchInput ? mobileSearchInput : searchInput;
+  const raw=sourceInput.value.trim();
+  searchInput.value=mobileSearchInput.value=raw;
   if(!raw){ searchMsg.textContent="住所を入力してください"; return; }
 
   let q = normalizeAddressInput(raw);
@@ -822,6 +881,8 @@ async function searchAddress(){
 }
 searchBtn.addEventListener("click", searchAddress);
 searchInput.addEventListener("keydown",(e)=>{ if(e.key==="Enter") searchAddress(); });
+mobileSearchBtn.addEventListener("click", searchAddress);
+mobileSearchInput.addEventListener("keydown",(e)=>{ if(e.key==="Enter") searchAddress(); });
 
 // --- sessionStorage: detail.html 往復で地図状態を保存/復元 ---
 function saveMapState(bid){
@@ -920,8 +981,11 @@ map.on("load", async ()=>{
       const dataset = datasetById(s.dataset_id);
       if(dataset) selectDataset(dataset);
       if(s.date) dateInput.value=s.date;
-      if(s.time!=null){ timeInput.value=s.time; timeLabel.textContent=fmtTime(parseFloat(timeInput.value)); }
-      if(s.mode3d) setMode(true, true);
+      if(s.time!=null){
+        timeInput.value=mobileTime.value=s.time;
+        timeLabel.textContent=mobileTimeLabel.textContent=fmtTime(parseFloat(timeInput.value));
+      }
+      setMode(Boolean(s.mode3d), true);
       map.jumpTo({center:s.center, zoom:s.zoom, pitch:s.pitch||0, bearing:s.bearing||0});
       refreshView().then(()=>{
         let f=null; const bid=s.buildingId||"";
@@ -940,6 +1004,7 @@ map.on("load", async ()=>{
       refreshView();
     }
   } else {
+    setMode(true);
     currentAreaEl.textContent = "表示中の地域：未選択";
     showNotice("");
     recomputeSunOnly();

@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
 <meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <title>詳細3Dモード — 東京 日当たりマップ</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/suncalc/1.9.0/suncalc.min.js"></script>
 <script type="importmap">
@@ -50,12 +50,37 @@ input[type=range]{width:100%}
   border-right:5px solid transparent;border-bottom:9px solid #e24b34}
 #compass span{position:relative;z-index:1;margin-top:32px}
 .dateerr{color:#ff8a8a;font-size:12px;margin-top:6px;min-height:1em}
+.panel-toggle{display:none}
+@media (max-width:600px){
+  #panel{top:auto;left:0;bottom:0;width:100%;max-width:none;max-height:min(55dvh,500px);
+    padding:8px 16px calc(14px + env(safe-area-inset-bottom));border-width:1px 0 0;
+    border-radius:16px 16px 0 0;box-shadow:0 -8px 28px rgba(0,0,0,.28);
+    transition:max-height .25s ease;overscroll-behavior:contain}
+  #panel.panel-collapsed{max-height:58px;overflow:hidden}
+  .panel-toggle{display:flex;width:100%;min-height:38px;align-items:center;justify-content:center;
+    gap:8px;margin:0 0 4px;padding:0;border:0;background:transparent;color:#e8edf2;
+    font:600 14px/1 system-ui,"Yu Gothic",Meiryo,sans-serif;cursor:pointer;touch-action:manipulation}
+  .panel-toggle::before{content:"";position:absolute;top:6px;width:42px;height:4px;
+    border-radius:4px;background:#687586}
+  .panel-toggle .toggle-icon{margin-top:8px;color:#ffb53d;font-size:12px}
+  #panel.panel-collapsed .toggle-icon{transform:rotate(180deg)}
+  .back{min-height:44px;display:inline-flex;align-items:center;padding:8px 14px}
+  input[type=date]{min-height:44px;font-size:16px}
+  input[type=range]{height:34px}
+  .date-row button{min-height:44px;padding:8px;font-size:13px;touch-action:manipulation}
+  .readout{justify-content:space-between;padding:0 8px}
+  #compass{top:calc(14px + env(safe-area-inset-top));right:14px}
+}
 </style>
 </head>
 <body>
 <canvas id="c"></canvas>
 <div id="compass" title="北方向"><div id="compassNeedle"></div><span>北</span></div>
 <div id="panel">
+  <button id="panelToggle" class="panel-toggle" type="button" aria-expanded="true" aria-controls="panelContent">
+    <span>日照設定・判定結果</span><span class="toggle-icon" aria-hidden="true">▼</span>
+  </button>
+  <div id="panelContent">
   <a class="back" href="index.html?restore=1">← 地図に戻る</a>
   <h1>詳細3Dモード</h1>
   <p class="sub">選択した建物周辺の光と遮蔽を確認</p>
@@ -89,6 +114,7 @@ input[type=range]{width:100%}
   <div class="notes">
     ※ この詳細3D表示は階数別の日照を厳密に判定するものではなく、周辺建物との位置関係から大まかに確認するためのものです。
   </div>
+  </div>
 </div>
 
 <script type="module">
@@ -111,6 +137,12 @@ const timeInput = el("time"), timeLabel = el("timeLabel");
 const altOut = el("alt"), azOut = el("az");
 const statusEl = el("status"), errMsg = el("errMsg"), bidEl = el("bid");
 const compassNeedle = el("compassNeedle");
+const panel = el("panel"), panelToggle = el("panelToggle");
+
+panelToggle.addEventListener("click",()=>{
+  const collapsed=panel.classList.toggle("panel-collapsed");
+  panelToggle.setAttribute("aria-expanded", String(!collapsed));
+});
 
 // URL パラメータ
 const params = new URLSearchParams(location.search);

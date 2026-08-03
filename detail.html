@@ -51,8 +51,9 @@ input[type=range]{width:100%}
 #compass span{position:relative;z-index:1;margin-top:32px}
 .dateerr{color:#ff8a8a;font-size:12px;margin-top:6px;min-height:1em}
 .panel-toggle{display:none}
+#mobileTimeline{display:none}
 @media (max-width:600px){
-  #panel{top:auto;left:0;bottom:0;width:100%;max-width:none;max-height:min(55dvh,500px);
+  #panel{top:auto;left:0;bottom:calc(104px + env(safe-area-inset-bottom));width:100%;max-width:none;max-height:min(55dvh,500px);
     padding:8px 16px calc(14px + env(safe-area-inset-bottom));border-width:1px 0 0;
     border-radius:16px 16px 0 0;box-shadow:0 -8px 28px rgba(0,0,0,.28);
     transition:max-height .25s ease;overscroll-behavior:contain}
@@ -67,9 +68,16 @@ input[type=range]{width:100%}
   .back{min-height:44px;display:inline-flex;align-items:center;padding:8px 14px}
   input[type=date]{min-height:44px;font-size:16px}
   input[type=range]{height:34px}
+  #panelContent .time-section{display:none}
   .date-row button{min-height:44px;padding:8px;font-size:13px;touch-action:manipulation}
   .readout{justify-content:space-between;padding:0 8px}
   #compass{top:calc(14px + env(safe-area-inset-top));right:14px}
+  #mobileTimeline{display:block;position:fixed;z-index:9;left:0;right:0;bottom:0;
+    padding:10px 16px calc(12px + env(safe-area-inset-bottom));background:rgba(24,28,34,.96);
+    border-top:1px solid #394452;box-shadow:0 -5px 20px rgba(0,0,0,.25);color:#e8edf2}
+  #mobileTimeline .timeline-head{display:flex;align-items:baseline;justify-content:space-between;font-size:12px;color:#9da9b7}
+  #mobileTimeline strong{color:#ffb53d;font-size:18px;font-variant-numeric:tabular-nums}
+  #mobileTimeline input{display:block;width:100%;height:36px;margin:1px 0 0;accent-color:#ffb53d}
 }
 </style>
 </head>
@@ -101,12 +109,13 @@ input[type=range]{width:100%}
   <input type="date" id="date" style="display:none" />
   <div id="dateErr" class="dateerr"></div>
 
-  <label for="time">時刻 <span class="val" id="timeLabel">12:00</span></label>
+  <div class="time-section"><label for="time">時刻 <span class="val" id="timeLabel">12:00</span></label>
   <input type="range" id="time" min="0" max="24" step="0.25" value="12" />
 
   <div class="readout">
     <div><span>太陽高度角</span><b id="alt">–</b></div>
     <div><span>太陽方位角</span><b id="az">–</b></div>
+  </div>
   </div>
   <div id="status">読み込み中…</div>
   <div id="bid"></div>
@@ -115,6 +124,10 @@ input[type=range]{width:100%}
     ※ この詳細3D表示は階数別の日照を厳密に判定するものではなく、周辺建物との位置関係から大まかに確認するためのものです。
   </div>
   </div>
+</div>
+<div id="mobileTimeline" aria-label="時刻設定">
+  <div class="timeline-head"><span>時刻</span><strong id="mobileTimeLabel">12:00</strong><span>光と影を確認</span></div>
+  <input type="range" id="mobileTime" min="0" max="24" step="0.25" value="12" aria-label="時刻" />
 </div>
 
 <script type="module">
@@ -138,11 +151,16 @@ const altOut = el("alt"), azOut = el("az");
 const statusEl = el("status"), errMsg = el("errMsg"), bidEl = el("bid");
 const compassNeedle = el("compassNeedle");
 const panel = el("panel"), panelToggle = el("panelToggle");
+const mobileTime = el("mobileTime"), mobileTimeLabel = el("mobileTimeLabel");
 
 panelToggle.addEventListener("click",()=>{
   const collapsed=panel.classList.toggle("panel-collapsed");
   panelToggle.setAttribute("aria-expanded", String(!collapsed));
 });
+if(matchMedia("(max-width: 600px)").matches){
+  panel.classList.add("panel-collapsed");
+  panelToggle.setAttribute("aria-expanded","false");
+}
 
 // URL パラメータ
 const params = new URLSearchParams(location.search);
@@ -150,6 +168,7 @@ const buildingId = params.get("buildingId") || "";
 const geojsonUrl = params.get("geojson") || "./data/higashikasai_buildings.geojson";
 const initTime = parseFloat(params.get("time") || "12");
 timeInput.value = initTime;
+mobileTime.value = initTime;
 bidEl.textContent = "建物を読み込み中…";
 
 const pad2 = n => String(n).padStart(2, "0");
@@ -163,6 +182,7 @@ function isValidDate(str){
 function fmtTime(v){ const h=Math.floor(v),m=Math.round((v-h)*60);
   return String(h).padStart(2,"0")+":"+String(m%60).padStart(2,"0"); }
 timeLabel.textContent = fmtTime(initTime);
+mobileTimeLabel.textContent = fmtTime(initTime);
 
 // 座標変換: lng/lat → ローカル(m)
 function toLocal(lng, lat, ref) {
@@ -221,6 +241,11 @@ controls.mouseButtons = {
   LEFT: THREE.MOUSE.PAN,
   MIDDLE: THREE.MOUSE.DOLLY,
   RIGHT: THREE.MOUSE.ROTATE
+};
+// MapLibre と同じタッチ操作: 1本指で移動、2本指でズーム・角度変更
+controls.touches = {
+  ONE: THREE.TOUCH.PAN,
+  TWO: THREE.TOUCH.DOLLY_ROTATE
 };
 
 const initDate = params.get("date") || todayStr();
@@ -415,6 +440,13 @@ function updateSun() {
 
 timeInput.addEventListener("input", () => {
   timeLabel.textContent = fmtTime(parseFloat(timeInput.value));
+  mobileTime.value = timeInput.value;
+  mobileTimeLabel.textContent = timeLabel.textContent;
+  updateSun();
+});
+mobileTime.addEventListener("input", () => {
+  timeInput.value = mobileTime.value;
+  timeLabel.textContent = mobileTimeLabel.textContent = fmtTime(parseFloat(mobileTime.value));
   updateSun();
 });
 

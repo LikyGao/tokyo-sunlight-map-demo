@@ -62,17 +62,18 @@
   #searchMsg{font-size:11px;color:#9aa6b4;margin:0 0 8px;min-height:1em}
   /* === 追加: 日付2行 === */
   .date-row{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
-  .date-settings summary{display:none}
   .location-summary{display:none}
   .panel-toggle{display:none}
   #mobileTop,#mobileTimeline{display:none}
   @media (max-width: 600px){
-    #panel{top:auto;left:0;bottom:calc(104px + env(safe-area-inset-bottom));width:100%;max-width:none;max-height:min(55dvh,500px);
-      padding:8px 16px calc(14px + env(safe-area-inset-bottom));border-width:1px 0 0;
+    #panel{top:auto;left:0;bottom:0;width:100%;max-width:none;max-height:min(62dvh,560px);
+      padding:0 16px calc(14px + env(safe-area-inset-bottom));border-width:1px 0 0;
       border-radius:16px 16px 0 0;box-shadow:0 -8px 28px rgba(0,0,0,.28);
-      transition:max-height .25s ease;padding-top:8px;overscroll-behavior:contain}
-    #panel.panel-collapsed{max-height:58px;overflow:hidden}
-    .panel-toggle{display:flex;width:100%;min-height:38px;align-items:center;justify-content:center;
+      transition:max-height .25s ease;overscroll-behavior:contain}
+    #panel.panel-collapsed{max-height:calc(104px + env(safe-area-inset-bottom));overflow:hidden}
+    #panel.panel-collapsed #panelContent{visibility:hidden}
+    #panel.panel-collapsed .location-section{visibility:visible}
+    .panel-toggle{display:none;width:100%;min-height:38px;align-items:center;justify-content:center;
       gap:8px;margin:0 0 4px;padding:0;border:0;background:transparent;color:#e8edf2;
       font:600 14px/1 system-ui,"Yu Gothic",Meiryo,sans-serif;cursor:pointer;touch-action:manipulation}
     .panel-toggle::before{content:"";position:absolute;top:6px;width:42px;height:4px;
@@ -109,15 +110,10 @@
     #mobileMode{pointer-events:auto}
     #mobileMode button{width:30px;height:30px;padding:0;border:0;border-radius:4px;background:#fff;color:#26313d;
       font:700 12px/30px system-ui;box-shadow:0 1px 4px rgba(0,0,0,.35);cursor:pointer;touch-action:manipulation}
-    .date-settings{margin-top:10px;border-top:1px solid #2b3340}
-    .date-settings summary{display:flex;align-items:center;justify-content:space-between;min-height:44px;
-      color:#cdd6e0;font-size:13px;font-weight:600;cursor:pointer;list-style:none}
-    .date-settings summary::-webkit-details-marker{display:none}
-    .date-settings summary::after{content:"＋";color:#ffb53d;font-size:18px}
-    .date-settings[open] summary::after{content:"−"}
-    #mobileTimeline{display:block;position:fixed;z-index:9;left:0;right:0;bottom:0;
-      padding:10px 16px calc(12px + env(safe-area-inset-bottom));background:rgba(24,28,34,.96);
-      border-top:1px solid #394452;box-shadow:0 -5px 20px rgba(0,0,0,.25);color:#e8edf2}
+    #mobileTimeline{display:block;margin:0 -16px;padding:14px 16px 10px;background:rgba(24,28,34,.98);
+      border-bottom:1px solid #394452;color:#e8edf2;cursor:ns-resize;touch-action:none;user-select:none}
+    #mobileTimeline::before{content:"";display:block;width:42px;height:4px;margin:-8px auto 6px;
+      border-radius:4px;background:#687586}
     #mobileTimeline .timeline-head{display:flex;align-items:baseline;justify-content:space-between;font-size:12px;color:#9da9b7}
     #mobileTimeline .timeline-head strong{color:#ffb53d;font-size:18px;font-variant-numeric:tabular-nums}
     #mobileTimeline input{display:block;width:100%;height:36px;margin:1px 0 0;accent-color:#ffb53d}
@@ -136,6 +132,10 @@
   <button id="panelToggle" class="panel-toggle" type="button" aria-expanded="true" aria-controls="panelContent">
     <span>表示・検索設定</span><span class="toggle-icon" aria-hidden="true">▼</span>
   </button>
+  <div id="mobileTimeline" aria-label="时刻设置；向上拖动显示更多设置">
+    <div class="timeline-head"><span>时刻</span><strong id="mobileTimeLabel">12:00</strong><span>上拉显示设置</span></div>
+    <input type="range" id="mobileTime" min="0" max="24" step="0.25" value="12" aria-label="时刻" />
+  </div>
   <div id="panelContent">
   <h1>東京 日当たりマップ</h1>
 
@@ -214,11 +214,6 @@
   </div>
   </div>
 </div>
-<div id="mobileTimeline" aria-label="時刻設定">
-  <div class="timeline-head"><span>時刻</span><strong id="mobileTimeLabel">12:00</strong><span>光と影を確認</span></div>
-  <input type="range" id="mobileTime" min="0" max="24" step="0.25" value="12" aria-label="時刻" />
-</div>
-
 <script>
 const DEFAULT_DATASETS = [
   {
@@ -279,8 +274,7 @@ const searchInput = el("searchInput"), searchBtn = el("searchBtn"), searchMsg = 
 const mobileSearchInput = el("mobileSearchInput"), mobileSearchBtn = el("mobileSearchBtn");
 const mobileTime = el("mobileTime"), mobileTimeLabel = el("mobileTimeLabel");
 const panel = el("panel"), panelToggle = el("panelToggle");
-const locationSection = el("locationSection"), dateSettings = el("dateSettings"), dateSummary = el("dateSummary");
-
+const locationSection = el("locationSection");
 mobileSearchInput.addEventListener("focus",()=>locationSection.classList.add("open"));
 mobileSearchInput.addEventListener("input",()=>{ searchInput.value=mobileSearchInput.value; });
 searchInput.addEventListener("input",()=>{ mobileSearchInput.value=searchInput.value; });
@@ -297,6 +291,20 @@ if(matchMedia("(max-width: 600px)").matches){
   panelToggle.setAttribute("aria-expanded","false");
   dateSettings.open=false;
 }
+
+let sheetStart=null;
+el("mobileTimeline").addEventListener("pointerdown",(event)=>{
+  sheetStart={x:event.clientX,y:event.clientY};
+});
+el("mobileTimeline").addEventListener("pointerup",(event)=>{
+  if(!sheetStart) return;
+  const dx=event.clientX-sheetStart.x, dy=event.clientY-sheetStart.y;
+  sheetStart=null;
+  if(Math.abs(dy)<24 || Math.abs(dy)<=Math.abs(dx)) return;
+  const collapsed=dy>0;
+  panel.classList.toggle("panel-collapsed",collapsed);
+  panelToggle.setAttribute("aria-expanded",String(!collapsed));
+});
 
 const HEIGHT_COLOR = ["step", ["get", "height"], "#3a9d8f", 10, "#3f7fd6", 31, "#e8833a"];
 

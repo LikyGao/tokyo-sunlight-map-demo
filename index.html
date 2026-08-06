@@ -36,15 +36,7 @@
     border-radius:6px;padding:6px 4px;font-size:12px;cursor:pointer}
   .btns button:hover,.date-row button:hover{background:#2c3640}
   .btns button.active,.date-row button.active{background:#ffb53d;color:#1a1205;border-color:#ffb53d;font-weight:700}
-  /* === 追加: トグル === */
-  .toggles{display:flex;flex-wrap:wrap;gap:12px;margin-top:10px}
-  .tg{display:inline-flex;align-items:center;gap:5px;font-size:12px;color:#cdd6e0;margin:0;cursor:pointer}
   .sunstatus{margin-top:6px;font-size:12px;color:#ffd24a;min-height:1em}
-  /* === 追加: 高さ凡例 === */
-  .legend{margin-top:8px;font-size:11px;color:#8d99a8;display:flex;align-items:center;flex-wrap:wrap}
-  .legend i{display:inline-block;width:12px;height:12px;border-radius:2px;margin:0 4px 0 8px}
-  /* === 追加: 注意書き === */
-  .notes{margin-top:10px;font-size:10.5px;color:#7e8a98;line-height:1.6;border-top:1px solid #2b3340;padding-top:8px}
   /* === 追加: 日付エラー === */
   .dateerr{color:#ff8a8a;font-size:12px;margin-top:6px;min-height:1em}
   /* === 追加: エリア選択 === */
@@ -61,6 +53,7 @@
     border-radius:6px;padding:6px 10px;font-size:12px;cursor:pointer}
   #searchMsg{font-size:11px;color:#9aa6b4;margin:0 0 8px;min-height:1em}
   /* === 追加: 日付2行 === */
+  .date-heading{margin-top:12px;font-size:12px;font-weight:600;color:#e8edf2}
   .date-row{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
   .location-summary{display:none}
   .panel-toggle{display:none}
@@ -85,8 +78,6 @@
     select,input[type=date],.search-row input{min-height:44px;font-size:16px}
     .search-row button,.btns button,.date-row button{min-height:44px;padding:8px;font-size:13px;touch-action:manipulation}
     input[type=range]{height:34px}
-    .tg{min-height:36px}
-    .tg input{width:20px;height:20px}
     .readout{justify-content:space-between;padding:0 8px}
     .maplibregl-ctrl-top-right{top:calc(112px + env(safe-area-inset-top));right:8px}
     .maplibregl-popup{max-width:calc(100vw - 24px)!important}
@@ -161,8 +152,8 @@
   </div>
   </div>
 
-  <details id="dateSettings" class="date-settings" open>
-  <summary>日付設定 <span class="val" id="dateSummary">今日</span></summary>
+  <section id="dateSettings" class="date-settings" aria-labelledby="dateSettingsHeading">
+  <div id="dateSettingsHeading" class="date-heading">日付設定 <span class="val" id="dateSummary">今日</span></div>
   <div id="dateBtns">
     <div class="date-row">
       <button data-mo="3" data-d="20">春分</button>
@@ -177,7 +168,7 @@
   </div>
   <input type="date" id="date" style="display:none" />
   <div id="dateErr" class="dateerr"></div>
-  </details>
+  </section>
 
   <div class="time-section"><label for="time">時刻 <span class="val" id="timeLabel">12:00</span></label>
   <input type="range" id="time" min="0" max="24" step="0.25" value="12" />
@@ -194,24 +185,7 @@
     <button id="b2d">2D表示</button>
   </div>
 
-  <!-- トグル -->
-  <div class="toggles">
-    <label class="tg"><input type="checkbox" id="tgBright" checked> 明るさ変化</label>
-  </div>
-
-  <!-- 高さ凡例 -->
-  <div class="legend">高さ:
-    <i style="background:#3a9d8f"></i>低層(&lt;10m)
-    <i style="background:#3f7fd6"></i>中層
-    <i style="background:#e8833a"></i>高層(&gt;31m)
-  </div>
-
   <div id="errBox"></div>
-
-  <div class="notes">
-    ※ この表示は階数別の日照を厳密に判定するものではなく、建物高さと影の方向から大まかに確認するためのものです。<br>
-    ※ 太陽位置は方向を分かりやすく示すための可視化です。実際の距離・大きさを表すものではありません。
-  </div>
   </div>
 </div>
 <script>
@@ -258,7 +232,6 @@ let loadedTiles = new Map();
 let activeDatasets = [];
 let activeTiles = [];
 let highlightedFeature = null;
-let brightnessOn = true;
 let mode3d = true;
 let currentAreaForSearch = null;
 let viewRefreshTimer = null;
@@ -289,7 +262,6 @@ panelToggle.addEventListener("click",()=>{
 if(matchMedia("(max-width: 600px)").matches){
   panel.classList.add("panel-collapsed");
   panelToggle.setAttribute("aria-expanded","false");
-  dateSettings.open=false;
 }
 
 let sheetStart=null;
@@ -651,7 +623,6 @@ function updateShadows(sun){
 }
 
 function updateBrightness(sun){
-  if(!brightnessOn){ brightness.style.background="transparent"; return; }
   const a=sun.altDeg;
   if(a>25) brightness.style.background="rgba(0,0,0,0)";
   else if(a>0){
@@ -812,9 +783,6 @@ dateInput.addEventListener("change",()=>{
 el("b2d").addEventListener("click",()=>setMode(false));
 el("b3d").addEventListener("click",()=>setMode(true));
 el("mobileModeToggle").addEventListener("click",()=>setMode(!mode3d));
-
-// トグル
-el("tgBright").addEventListener("change",(e)=>{ brightnessOn=e.target.checked; recomputeSunOnly(); });
 
 // ========== 住所検索（国土地理院 API + 自動区域判定 + 建物マッチ）==========
 

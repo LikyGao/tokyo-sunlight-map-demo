@@ -23,6 +23,7 @@ h1{font-size:14px;margin:0 0 4px}
 .back{display:inline-block;margin-bottom:8px;padding:6px 12px;background:#222a33;color:#e8edf2;
   border:1px solid #2b3340;border-radius:6px;text-decoration:none;font-size:13px}
 .back:hover{background:#2c3640}
+.mobile-back{display:none}
 label{display:block;font-size:12px;color:#8d99a8;margin:10px 0 4px}
 input[type=date]{width:100%;background:#0f141b;border:1px solid #2b3340;color:#e8edf2;border-radius:6px;padding:6px 8px}
 input[type=range]{width:100%}
@@ -53,11 +54,12 @@ input[type=range]{width:100%}
 .panel-toggle{display:none}
 #mobileTimeline{display:none}
 @media (max-width:600px){
-  #panel{top:auto;left:0;bottom:calc(104px + env(safe-area-inset-bottom));width:100%;max-width:none;max-height:min(55dvh,500px);
-    padding:8px 16px calc(14px + env(safe-area-inset-bottom));border-width:1px 0 0;
+  #panel{top:auto;left:0;bottom:0;width:100%;max-width:none;max-height:min(62dvh,560px);
+    padding:0 16px calc(14px + env(safe-area-inset-bottom));border-width:1px 0 0;
     border-radius:16px 16px 0 0;box-shadow:0 -8px 28px rgba(0,0,0,.28);
     transition:max-height .25s ease;overscroll-behavior:contain}
-  #panel.panel-collapsed{max-height:58px;overflow:hidden}
+  #panel.panel-collapsed{max-height:calc(90px + env(safe-area-inset-bottom));overflow:hidden}
+  #panel.panel-collapsed #panelContent,#panel.panel-collapsed .panel-toggle{visibility:hidden}
   .panel-toggle{display:flex;width:100%;min-height:38px;align-items:center;justify-content:center;
     gap:8px;margin:0 0 4px;padding:0;border:0;background:transparent;color:#e8edf2;
     font:600 14px/1 system-ui,"Yu Gothic",Meiryo,sans-serif;cursor:pointer;touch-action:manipulation}
@@ -65,16 +67,23 @@ input[type=range]{width:100%}
     border-radius:4px;background:#687586}
   .panel-toggle .toggle-icon{margin-top:8px;color:#ffb53d;font-size:12px}
   #panel.panel-collapsed .toggle-icon{transform:rotate(180deg)}
-  .back{min-height:44px;display:inline-flex;align-items:center;padding:8px 14px}
+  .back{display:none}
+  .mobile-back{position:fixed;z-index:4;top:calc(14px + env(safe-area-inset-top));right:14px;
+    min-height:36px;display:inline-flex;align-items:center;margin:0;padding:0 14px;
+    background:rgba(24,28,34,.9);border:1px solid rgba(151,166,183,.3);border-radius:18px;
+    color:#f1f5f8;font-size:12px;font-weight:650;letter-spacing:.01em;text-decoration:none;
+    box-shadow:0 3px 12px rgba(0,0,0,.24);backdrop-filter:blur(8px)}
+  .mobile-back:hover{background:rgba(35,42,51,.94)}
   input[type=date]{min-height:44px;font-size:16px}
   input[type=range]{height:34px}
   #panelContent .time-section{display:none}
   .date-row button{min-height:44px;padding:8px;font-size:13px;touch-action:manipulation}
   .readout{justify-content:space-between;padding:0 8px}
-  #compass{top:calc(14px + env(safe-area-inset-top));right:14px}
-  #mobileTimeline{display:block;position:fixed;z-index:9;left:0;right:0;bottom:0;
-    padding:10px 16px calc(12px + env(safe-area-inset-bottom));background:rgba(24,28,34,.96);
-    border-top:1px solid #394452;box-shadow:0 -5px 20px rgba(0,0,0,.25);color:#e8edf2}
+  #compass{top:calc(62px + env(safe-area-inset-top));right:14px}
+  #mobileTimeline{display:block;margin:0 -16px;padding:14px 16px 8px;background:rgba(24,28,34,.98);
+    border-bottom:1px solid #394452;color:#e8edf2;cursor:ns-resize;touch-action:none;user-select:none}
+  #mobileTimeline::before{content:"";display:block;width:42px;height:4px;margin:-8px auto 6px;
+    border-radius:4px;background:#687586}
   #mobileTimeline .timeline-head{display:flex;align-items:baseline;justify-content:space-between;font-size:12px;color:#9da9b7}
   #mobileTimeline strong{color:#ffb53d;font-size:18px;font-variant-numeric:tabular-nums}
   #mobileTimeline input{display:block;width:100%;height:36px;margin:1px 0 0;accent-color:#ffb53d}
@@ -84,7 +93,12 @@ input[type=range]{width:100%}
 <body>
 <canvas id="c"></canvas>
 <div id="compass" title="北方向"><div id="compassNeedle"></div><span>北</span></div>
+<a class="mobile-back" href="index.html?restore=1" aria-label="地図に戻る">地図に戻る</a>
 <div id="panel">
+  <div id="mobileTimeline" aria-label="時刻設定。上にスワイプして日付と判定結果を表示">
+    <div class="timeline-head"><span>時刻</span><strong id="mobileTimeLabel">12:00</strong><span id="timelineHint">上にスワイプ</span></div>
+    <input type="range" id="mobileTime" min="0" max="24" step="0.25" value="12" aria-label="時刻" />
+  </div>
   <button id="panelToggle" class="panel-toggle" type="button" aria-expanded="true" aria-controls="panelContent">
     <span>日照設定・判定結果</span><span class="toggle-icon" aria-hidden="true">▼</span>
   </button>
@@ -125,11 +139,6 @@ input[type=range]{width:100%}
   </div>
   </div>
 </div>
-<div id="mobileTimeline" aria-label="時刻設定">
-  <div class="timeline-head"><span>時刻</span><strong id="mobileTimeLabel">12:00</strong><span>光と影を確認</span></div>
-  <input type="range" id="mobileTime" min="0" max="24" step="0.25" value="12" aria-label="時刻" />
-</div>
-
 <script type="module">
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
@@ -152,15 +161,32 @@ const statusEl = el("status"), errMsg = el("errMsg"), bidEl = el("bid");
 const compassNeedle = el("compassNeedle");
 const panel = el("panel"), panelToggle = el("panelToggle");
 const mobileTime = el("mobileTime"), mobileTimeLabel = el("mobileTimeLabel");
+const mobileTimeline = el("mobileTimeline"), timelineHint = el("timelineHint");
+
+function setPanelCollapsed(collapsed){
+  panel.classList.toggle("panel-collapsed",collapsed);
+  panelToggle.setAttribute("aria-expanded",String(!collapsed));
+  timelineHint.textContent=collapsed ? "上にスワイプ" : "下にスワイプして閉じる";
+}
 
 panelToggle.addEventListener("click",()=>{
-  const collapsed=panel.classList.toggle("panel-collapsed");
-  panelToggle.setAttribute("aria-expanded", String(!collapsed));
+  setPanelCollapsed(!panel.classList.contains("panel-collapsed"));
 });
 if(matchMedia("(max-width: 600px)").matches){
-  panel.classList.add("panel-collapsed");
-  panelToggle.setAttribute("aria-expanded","false");
+  setPanelCollapsed(true);
 }
+
+let sheetStart=null;
+mobileTimeline.addEventListener("pointerdown",event=>{
+  sheetStart={x:event.clientX,y:event.clientY};
+});
+mobileTimeline.addEventListener("pointerup",event=>{
+  if(!sheetStart) return;
+  const dx=event.clientX-sheetStart.x,dy=event.clientY-sheetStart.y;
+  sheetStart=null;
+  if(Math.abs(dy)<24 || Math.abs(dy)<=Math.abs(dx)) return;
+  setPanelCollapsed(dy>0);
+});
 
 // URL パラメータ
 const params = new URLSearchParams(location.search);

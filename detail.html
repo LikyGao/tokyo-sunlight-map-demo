@@ -68,20 +68,40 @@ input[type=range]{width:100%}
   .panel-toggle .toggle-icon{margin-top:8px;color:#ffb53d;font-size:12px}
   #panel.panel-collapsed .toggle-icon{transform:rotate(180deg)}
   .back{display:none}
-  /* 右上は戻る操作を優先し、コンパスはその下に並べる */
-  .mobile-back{position:fixed;z-index:4;top:calc(14px + env(safe-area-inset-top));right:14px;
-    min-height:36px;display:inline-flex;align-items:center;margin:0;padding:0 14px;
-    background:rgba(24,28,34,.9);border:1px solid rgba(151,166,183,.3);border-radius:18px;
-    color:#f1f5f8;font-size:12px;font-weight:650;letter-spacing:.01em;text-decoration:none;white-space:nowrap;
-    box-shadow:0 3px 12px rgba(0,0,0,.24);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);
-    touch-action:manipulation}
+.mobile-back{
+  position:fixed;
+  z-index:4;
+  top:calc(14px + env(safe-area-inset-top));
+  right:14px;
+  min-height:36px;
+  display:inline-flex;
+  align-items:center;
+  margin:0;
+  padding:0 14px;
+  background:rgba(24,28,34,.9);
+  border:1px solid rgba(151,166,183,.3);
+  border-radius:18px;
+  color:#f1f5f8;
+  font-size:12px;
+  font-weight:650;
+  letter-spacing:.01em;
+  text-decoration:none;
+  white-space:nowrap;
+  box-shadow:0 3px 12px rgba(0,0,0,.24);
+  -webkit-backdrop-filter:blur(8px);
+  backdrop-filter:blur(8px);
+  touch-action:manipulation;
+}
   .mobile-back:hover{background:rgba(35,42,51,.94)}
   input[type=date]{min-height:44px;font-size:16px}
   input[type=range]{height:34px}
   #panelContent .time-section{display:none}
   .date-row button{min-height:44px;padding:8px;font-size:13px;touch-action:manipulation}
   .readout{justify-content:space-between;padding:0 8px}
-  #compass{top:calc(62px + env(safe-area-inset-top));right:14px}
+#compass{
+  top:calc(62px + env(safe-area-inset-top));
+  right:14px;
+}
   #mobileTimeline{display:block;margin:0 -16px;padding:14px 16px 8px;background:rgba(24,28,34,.98);
     border-bottom:1px solid #394452;color:#e8edf2;cursor:ns-resize;touch-action:none;user-select:none}
   #mobileTimeline::before{content:"";display:block;width:42px;height:4px;margin:-8px auto 6px;

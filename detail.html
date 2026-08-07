@@ -68,11 +68,13 @@ input[type=range]{width:100%}
   .panel-toggle .toggle-icon{margin-top:8px;color:#ffb53d;font-size:12px}
   #panel.panel-collapsed .toggle-icon{transform:rotate(180deg)}
   .back{display:none}
+  /* 右上は戻る操作を優先し、コンパスはその下に並べる */
   .mobile-back{position:fixed;z-index:4;top:calc(14px + env(safe-area-inset-top));right:14px;
     min-height:36px;display:inline-flex;align-items:center;margin:0;padding:0 14px;
     background:rgba(24,28,34,.9);border:1px solid rgba(151,166,183,.3);border-radius:18px;
-    color:#f1f5f8;font-size:12px;font-weight:650;letter-spacing:.01em;text-decoration:none;
-    box-shadow:0 3px 12px rgba(0,0,0,.24);backdrop-filter:blur(8px)}
+    color:#f1f5f8;font-size:12px;font-weight:650;letter-spacing:.01em;text-decoration:none;white-space:nowrap;
+    box-shadow:0 3px 12px rgba(0,0,0,.24);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);
+    touch-action:manipulation}
   .mobile-back:hover{background:rgba(35,42,51,.94)}
   input[type=date]{min-height:44px;font-size:16px}
   input[type=range]{height:34px}

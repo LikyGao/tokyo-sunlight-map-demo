@@ -1,0 +1,3 @@
+<resources>
+    <string name="app_url" translatable="false">http://192.168.3.145:4175/index.html?app=android</string>
+</resources>

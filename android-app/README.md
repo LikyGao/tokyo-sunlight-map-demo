@@ -11,3 +11,6 @@ Build a test APK from this directory:
 ```
 
 The output is `app/build/outputs/apk/debug/app-debug.apk`.
+
+The debug build connects to the local preview server at `192.168.3.145:4175`.
+Release builds connect to the HTTPS GitHub Pages deployment.

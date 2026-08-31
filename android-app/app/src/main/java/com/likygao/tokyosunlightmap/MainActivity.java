@@ -29,9 +29,7 @@ import android.widget.TextView;
 import android.net.http.SslError;
 
 public class MainActivity extends Activity {
-    private static final String APP_ORIGIN = "https://likygao.github.io";
-    private static final String APP_URL = APP_ORIGIN + "/tokyo-sunlight-map-demo/index.html?app=android";
-
+    private String appUrl;
     private WebView webView;
     private ProgressBar progressBar;
     private LinearLayout errorView;
@@ -41,11 +39,12 @@ public class MainActivity extends Activity {
         super.onCreate(savedInstanceState);
         getWindow().setStatusBarColor(Color.rgb(19, 25, 32));
         getWindow().setNavigationBarColor(Color.rgb(19, 25, 32));
+        appUrl = getString(R.string.app_url);
         buildContentView();
         configureWebView();
 
         if (savedInstanceState == null) {
-            webView.loadUrl(APP_URL);
+            webView.loadUrl(appUrl);
         } else {
             webView.restoreState(savedInstanceState);
         }
@@ -95,7 +94,7 @@ public class MainActivity extends Activity {
         retry.setOnClickListener(view -> {
             errorView.setVisibility(View.GONE);
             webView.setVisibility(View.VISIBLE);
-            webView.loadUrl(APP_URL);
+            webView.loadUrl(appUrl);
         });
         LinearLayout.LayoutParams retryParams = new LinearLayout.LayoutParams(dp(160), dp(48));
         errorView.addView(retry, retryParams);
@@ -144,7 +143,7 @@ public class MainActivity extends Activity {
             public void onGeolocationPermissionsShowPrompt(
                     String origin,
                     GeolocationPermissions.Callback callback) {
-                callback.invoke(origin, APP_ORIGIN.equals(origin), false);
+                callback.invoke(origin, isTrustedUri(Uri.parse(origin)), false);
             }
         });
 
@@ -158,7 +157,7 @@ public class MainActivity extends Activity {
             @Override
             public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
                 Uri uri = request.getUrl();
-                if ("likygao.github.io".equalsIgnoreCase(uri.getHost())) {
+                if (isTrustedUri(uri)) {
                     return false;
                 }
                 startActivity(new Intent(Intent.ACTION_VIEW, uri));
@@ -189,6 +188,15 @@ public class MainActivity extends Activity {
 
     private int dp(int value) {
         return Math.round(value * getResources().getDisplayMetrics().density);
+    }
+
+    private boolean isTrustedUri(Uri uri) {
+        String host = uri.getHost();
+        if (host == null) return false;
+        if ("likygao.github.io".equalsIgnoreCase(host)) {
+            return "https".equalsIgnoreCase(uri.getScheme());
+        }
+        return "192.168.3.145".equals(host) && "http".equalsIgnoreCase(uri.getScheme());
     }
 
     @Override

@@ -12,6 +12,7 @@ android {
         targetSdk 35
         versionCode 1
         versionName "0.1.0"
+        manifestPlaceholders = [usesCleartextTraffic: "false"]
     }
 
     compileOptions {
@@ -20,6 +21,9 @@ android {
     }
 
     buildTypes {
+        debug {
+            manifestPlaceholders = [usesCleartextTraffic: "true"]
+        }
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro"

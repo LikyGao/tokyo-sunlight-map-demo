@@ -1,0 +1,6 @@
+<resources>
+    <string name="app_name">東京 日当たりマップ</string>
+    <string name="offline_title">地図を読み込めません</string>
+    <string name="offline_message">インターネット接続を確認して、もう一度お試しください。</string>
+    <string name="retry">再読み込み</string>
+</resources>

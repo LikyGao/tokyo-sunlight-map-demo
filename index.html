@@ -3,7 +3,17 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#0795f2" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-title" content="日当たりマップ" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="description" content="東京の建物と太陽位置から日当たりを確認する地図アプリです。" />
 <title>東京 日当たりマップ</title>
+<link rel="manifest" href="./manifest.webmanifest" />
+<link rel="apple-touch-icon" href="./assets/icons/apple-touch-icon.png" />
+<link rel="icon" type="image/png" sizes="32x32" href="./assets/icons/favicon-32.png" />
+<link rel="icon" type="image/png" sizes="16x16" href="./assets/icons/favicon-16.png" />
 <link href="https://cdnjs.cloudflare.com/ajax/libs/maplibre-gl/4.7.1/maplibre-gl.min.css" rel="stylesheet" />
 <script src="https://cdnjs.cloudflare.com/ajax/libs/maplibre-gl/4.7.1/maplibre-gl.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/suncalc/1.9.0/suncalc.min.js"></script>
@@ -109,6 +119,65 @@
     #mobileTimeline .timeline-head strong{color:#ffb53d;font-size:18px;font-variant-numeric:tabular-nums}
     #mobileTimeline input{display:block;width:100%;height:36px;margin:1px 0 0;accent-color:#ffb53d}
   }
+  @media (max-width: 600px){
+    :root{--mobile-surface:rgba(255,255,255,.97);--mobile-ink:#13202a;--mobile-muted:#68737d;
+      --mobile-accent:#f6a524;--mobile-sheet:#131920;--mobile-divider:#d9dfe3}
+    #panel{max-height:min(70dvh,620px);padding:0 16px calc(14px + env(safe-area-inset-bottom));
+      border-color:#303943;border-radius:12px 12px 0 0;background:rgba(19,25,32,.98);
+      box-shadow:0 -10px 28px rgba(10,17,23,.24)}
+    #panel.panel-collapsed{max-height:calc(128px + env(safe-area-inset-bottom))}
+    .location-section{top:calc(16px + env(safe-area-inset-top));left:16px;right:16px;
+      border:1px solid rgba(18,32,42,.08);border-radius:12px;box-shadow:0 4px 14px rgba(14,25,33,.16)}
+    .location-section.open{border-radius:12px}
+    .location-summary{height:52px}
+    .location-summary input{height:52px;padding-left:16px;color:var(--mobile-ink);font-size:15px}
+    .location-summary button{position:relative;width:52px;height:52px;flex-basis:52px;color:transparent;font-size:0}
+    .location-summary button::before{content:"";position:absolute;left:17px;top:15px;width:12px;height:12px;
+      border:3px solid var(--mobile-ink);border-radius:50%}
+    .location-summary button::after{content:"";position:absolute;left:30px;top:29px;width:9px;height:3px;
+      border-radius:2px;background:var(--mobile-ink);transform:rotate(-45deg);transform-origin:left center}
+    #mobileTop{top:calc(84px + env(safe-area-inset-top));right:16px;transition:opacity .18s ease,transform .18s ease}
+    body:has(.location-section.open) #mobileTop{opacity:0;transform:translateY(-6px);pointer-events:none}
+    #mobileMode{display:flex;width:48px;flex-direction:column;overflow:hidden;border-radius:10px;
+      background:var(--mobile-surface);box-shadow:0 4px 14px rgba(14,25,33,.18);pointer-events:auto}
+    #mobileMode button{position:relative;width:48px;height:46px;flex:0 0 46px;padding:0;border:0;border-radius:0;
+      border-bottom:1px solid var(--mobile-divider);background:transparent;color:var(--mobile-ink);
+      box-shadow:none;font:700 15px/46px system-ui,"Yu Gothic",Meiryo,sans-serif;cursor:pointer}
+    #mobileMode button:last-child{height:50px;flex-basis:50px;border-bottom:0}
+    #mobileModeToggle[aria-pressed="true"]{margin:4px;width:40px;height:40px;flex-basis:40px;border:0;border-radius:7px;
+      background:#ffe9bc;line-height:40px}
+    #mobileModeToggle[aria-pressed="false"]{margin:4px;width:40px;height:40px;flex-basis:40px;border:0;border-radius:7px;
+      background:#e8f0f4;line-height:40px}
+    #mobileZoomIn,#mobileZoomOut{font-size:25px!important;font-weight:500!important}
+    #mobileCompassNeedle{position:absolute;left:19px;top:9px;width:0;height:0;border-left:5px solid transparent;
+      border-right:5px solid transparent;border-bottom:14px solid #df4b3f;transform-origin:5px 17px}
+    #mobileCompassNeedle::after{content:"";position:absolute;left:-1px;top:12px;width:2px;height:11px;
+      border-radius:2px;background:var(--mobile-ink)}
+    #mobileCompassLabel{position:absolute;left:0;right:0;bottom:4px;color:var(--mobile-muted);font-size:9px;line-height:1}
+    .maplibregl-ctrl-top-right{display:none}
+    #mobileTimeline{height:128px;margin:0 -16px;padding:17px 16px 12px;border:0;
+      background:var(--mobile-sheet);cursor:ns-resize}
+    #mobileTimeline::before{width:42px;height:4px;margin:-10px auto 10px;background:#74808d}
+    #mobileTimeline .timeline-head{height:38px;align-items:center;color:#9ca7b1}
+    #mobileTimeline .timeline-head strong{color:var(--mobile-accent);font-size:22px;line-height:1}
+    #mobileTimeline .timeline-date{font-size:11px;font-weight:600}
+    .sheet-toggle{position:relative;width:36px;height:36px;padding:0;border:0;border-radius:8px;
+      background:#202832;color:transparent;cursor:pointer}
+    .sheet-toggle::before,.sheet-toggle::after{content:"";position:absolute;top:17px;width:9px;height:2px;
+      border-radius:2px;background:#c7cfd6}
+    .sheet-toggle::before{left:10px;transform:rotate(-45deg)}
+    .sheet-toggle::after{right:10px;transform:rotate(45deg)}
+    #panel:not(.panel-collapsed) .sheet-toggle::before{transform:rotate(45deg)}
+    #panel:not(.panel-collapsed) .sheet-toggle::after{transform:rotate(-45deg)}
+    #mobileTimeline input{-webkit-appearance:none;appearance:none;height:34px;margin:4px 0 0;background:transparent}
+    #mobileTimeline input::-webkit-slider-runnable-track{height:4px;border-radius:4px;
+      background:linear-gradient(to right,var(--mobile-accent) 0,var(--mobile-accent) var(--range-pct,50%),#515a64 var(--range-pct,50%),#515a64 100%)}
+    #mobileTimeline input::-webkit-slider-thumb{-webkit-appearance:none;width:20px;height:20px;margin-top:-8px;
+      border:0;border-radius:50%;background:var(--mobile-accent);box-shadow:0 1px 4px rgba(0,0,0,.2)}
+    #mobileTimeline input::-moz-range-track{height:4px;border-radius:4px;background:#515a64}
+    #mobileTimeline input::-moz-range-progress{height:4px;border-radius:4px;background:var(--mobile-accent)}
+    #mobileTimeline input::-moz-range-thumb{width:20px;height:20px;border:0;border-radius:50%;background:var(--mobile-accent)}
+  }
 </style>
 </head>
 <body>
@@ -117,14 +186,19 @@
 <div id="mobileTop">
   <div id="mobileMode" aria-label="地図表示モード">
     <button id="mobileModeToggle" type="button" aria-pressed="true" title="2D表示に切り替え">3D</button>
+    <button id="mobileZoomIn" type="button" aria-label="拡大" title="拡大">＋</button>
+    <button id="mobileZoomOut" type="button" aria-label="縮小" title="縮小">−</button>
+    <button id="mobileCompass" type="button" aria-label="北を上に戻す" title="北を上に戻す">
+      <span id="mobileCompassNeedle" aria-hidden="true"></span><span id="mobileCompassLabel" aria-hidden="true">N</span>
+    </button>
   </div>
 </div>
 <div id="panel">
   <button id="panelToggle" class="panel-toggle" type="button" aria-expanded="true" aria-controls="panelContent">
     <span>表示・検索設定</span><span class="toggle-icon" aria-hidden="true">▼</span>
   </button>
-  <div id="mobileTimeline" aria-label="时刻设置；向上拖动显示更多设置">
-    <div class="timeline-head"><span>时刻</span><strong id="mobileTimeLabel">12:00</strong><span>上拉显示设置</span></div>
+  <div id="mobileTimeline" aria-label="時刻設定">
+    <div class="timeline-head"><span class="timeline-date">今日</span><strong id="mobileTimeLabel">12:00</strong><button id="mobileSheetToggle" class="sheet-toggle" type="button" aria-label="設定を開閉"></button></div>
     <input type="range" id="mobileTime" min="0" max="24" step="0.25" value="12" aria-label="时刻" />
   </div>
   <div id="panelContent">
@@ -229,11 +303,19 @@ let BUILDINGS = turf.featureCollection([]);
 let VIEW_SHADOW_SRC = [];
 let loadedDatasets = new Map();
 let loadedTiles = new Map();
+let LOD2_MODELS = [];
+let LOD2_FEATURES = [];
+let LOD2_REPLACE_GML_IDS = new Set();
+let LOD2_FEATURE_BY_GML_ID = new Map();
+let LOD2_MODEL_BY_GML_ID = new Map();
+let LOD2_VISIBLE_GML_IDS = new Set();
 let activeDatasets = [];
 let activeTiles = [];
+let AREA_CATALOG = {};
 let highlightedFeature = null;
 let mode3d = true;
 let currentAreaForSearch = null;
+let selectedAreaName = "";
 let viewRefreshTimer = null;
 
 const el = (id) => document.getElementById(id);
@@ -248,6 +330,11 @@ const mobileSearchInput = el("mobileSearchInput"), mobileSearchBtn = el("mobileS
 const mobileTime = el("mobileTime"), mobileTimeLabel = el("mobileTimeLabel");
 const panel = el("panel"), panelToggle = el("panelToggle");
 const locationSection = el("locationSection");
+function syncMobileRangeFill(){
+  const min=Number(mobileTime.min)||0, max=Number(mobileTime.max)||24, value=Number(mobileTime.value)||0;
+  mobileTime.style.setProperty("--range-pct",`${((value-min)/(max-min))*100}%`);
+}
+syncMobileRangeFill();
 mobileSearchInput.addEventListener("focus",()=>locationSection.classList.add("open"));
 mobileSearchInput.addEventListener("input",()=>{ searchInput.value=mobileSearchInput.value; });
 searchInput.addEventListener("input",()=>{ mobileSearchInput.value=searchInput.value; });
@@ -362,6 +449,220 @@ function distanceFromCenter(feature, center){
   const c = centroidCoords(feature);
   return haversine(center.lng, center.lat, c[0], c[1]);
 }
+function isLod2ReplacedFeature(feature){
+  const gid = feature && feature.properties && feature.properties.gml_id;
+  return gid && LOD2_REPLACE_GML_IDS.has(gid);
+}
+function colorBytesToFloat(bytes, fallback){
+  const src = Array.isArray(bytes) ? bytes : fallback;
+  return [
+    (src[0] || 0) / 255,
+    (src[1] || 0) / 255,
+    (src[2] || 0) / 255,
+    (src[3] == null ? 255 : src[3]) / 255
+  ];
+}
+function mercatorPoint(p){
+  const m = maplibregl.MercatorCoordinate.fromLngLat([p[0], p[1]], p[2] || 0);
+  return [m.x, m.y, m.z];
+}
+function normalizeLod2SurfaceRings(surface){
+  if(!Array.isArray(surface) || !surface.length) return [];
+  const first = surface[0];
+  if(Array.isArray(first) && typeof first[0] === "number") return [surface];
+  return surface.filter(ring => Array.isArray(ring) && ring.length);
+}
+function lod2Footprint(data){
+  const pts = [];
+  for(const surface of data.surfaces || []){
+    for(const ring of normalizeLod2SurfaceRings(surface)){
+      for(const p of ring){
+        if(Array.isArray(p) && Number.isFinite(p[0]) && Number.isFinite(p[1])) pts.push([p[0], p[1]]);
+      }
+    }
+  }
+  const unique = Array.from(new Map(pts.map(p=>[p[0].toFixed(8)+","+p[1].toFixed(8), p])).values());
+  const hull = convexHull(unique);
+  return hull && hull.length >= 4 ? hull : null;
+}
+function buildLod2Buffers(model, data){
+  const triangles = [];
+  const lines = [];
+  const shadowVertices = new Map();
+  const groundElevation = Number(data.ground_elevation ?? (data.bbox && data.bbox[2])) || 0;
+  const geometryHeight = Math.max(
+    Number(data.height) || 0,
+    Math.max(0, (data.bbox && data.bbox[5] - data.bbox[2]) || 0)
+  );
+  for(const surface of data.surfaces || []){
+    for(const ring of normalizeLod2SurfaceRings(surface)){
+      const clean = ring.filter(p => Array.isArray(p) && p.length >= 2).slice();
+      if(clean.length > 1){
+        const a = clean[0], b = clean[clean.length - 1];
+        if(Math.abs(a[0]-b[0]) < 1e-10 && Math.abs(a[1]-b[1]) < 1e-10 && Math.abs((a[2]||0)-(b[2]||0)) < 1e-6) clean.pop();
+      }
+      if(clean.length < 3) continue;
+      const localHeight = p => Math.max(0, (Number(p[2]) || groundElevation) - groundElevation);
+      const pts = clean.map(p => mercatorPoint([p[0], p[1], localHeight(p)]));
+      for(const p of clean){
+        const z = localHeight(p);
+        const key = p[0].toFixed(8) + "," + p[1].toFixed(8) + "," + z.toFixed(2);
+        if(!shadowVertices.has(key)) shadowVertices.set(key, [p[0], p[1], z]);
+      }
+      for(let i=1; i<pts.length-1; i++) triangles.push(...pts[0], ...pts[i], ...pts[i+1]);
+      for(let i=0; i<pts.length; i++) lines.push(...pts[i], ...pts[(i+1)%pts.length]);
+    }
+  }
+  return {
+    id: model.id,
+    name: model.name,
+    gml_id: model.gml_id,
+    url: model.url,
+    height: geometryHeight,
+    groundElevation,
+    bbox: data.bbox || null,
+    surface_count: data.surface_count || 0,
+    triangleVertices: new Float32Array(triangles),
+    lineVertices: new Float32Array(lines),
+    shadowVertices: Array.from(shadowVertices.values()),
+    color: colorBytesToFloat(model.color, [232,117,43,245]),
+    lineColor: colorBytesToFloat(model.line_color, [130,78,45,130])
+  };
+}
+function buildLod2Feature(model, data){
+  const ring = lod2Footprint(data);
+  if(!ring) return null;
+  const h = Math.max(
+    Number(data.height) || 0,
+    Math.max(0, (data.bbox && data.bbox[5] - data.bbox[2]) || 0)
+  );
+  const feature = turf.polygon([ring], {
+    gml_id: model.gml_id,
+    height: h,
+    name: model.name,
+    lod2_id: model.id,
+    lod2_url: model.url,
+    is_lod2_landmark: true,
+    feature_index: -1,
+    tile_id: "",
+    tile_geojson_path: ""
+  });
+  feature._bbox = data.bbox ? [data.bbox[0], data.bbox[1], data.bbox[3], data.bbox[4]] : turf.bbox(feature);
+  return feature;
+}
+function rememberLod2OriginalFeature(feature){
+  const gid = feature && feature.properties && feature.properties.gml_id;
+  const lod2 = gid && LOD2_FEATURE_BY_GML_ID.get(gid);
+  if(!lod2) return;
+  const src = feature.properties || {};
+  lod2.properties.dataset_id = src.dataset_id || lod2.properties.dataset_id || "";
+  lod2.properties.dataset_label = src.dataset_label || lod2.properties.dataset_label || "";
+  lod2.properties.tile_id = src.tile_id || lod2.properties.tile_id || "";
+  lod2.properties.tile_geojson_path = src.tile_geojson_path || lod2.properties.tile_geojson_path || "";
+  lod2.properties.feature_index = src.feature_index ?? lod2.properties.feature_index;
+  lod2.properties.addr = src.addr || lod2.properties.addr || "";
+  lod2.properties.height = Math.max(Number(src.height) || 0, Number(lod2.properties.height) || 0);
+}
+async function loadLod2Models(){
+  try{
+    const r = await fetch("./data/landmarks/lod2/manifest.json", {cache:"no-cache"});
+    if(!r.ok) return;
+    const manifest = await r.json();
+    const models = Array.isArray(manifest.models) ? manifest.models : [];
+    LOD2_REPLACE_GML_IDS = new Set(models.map(m=>m.gml_id).filter(Boolean));
+    const loaded = [];
+    const features = [];
+    for(const model of models){
+      const data = await fetch(model.url, {cache:"no-cache"}).then(res=>{
+        if(!res.ok) throw new Error("LOD2 HTTP " + res.status);
+        return res.json();
+      });
+      loaded.push(buildLod2Buffers(model, data));
+      const feature = buildLod2Feature(model, data);
+      if(feature) features.push(feature);
+    }
+    LOD2_MODELS = loaded;
+    LOD2_FEATURES = features;
+    LOD2_FEATURE_BY_GML_ID = new Map(features.map(f=>[f.properties.gml_id, f]));
+    LOD2_MODEL_BY_GML_ID = new Map(loaded.map(m=>[m.gml_id, m]));
+  }catch(e){
+    LOD2_MODELS = [];
+    LOD2_FEATURES = [];
+    LOD2_REPLACE_GML_IDS = new Set();
+    LOD2_FEATURE_BY_GML_ID = new Map();
+    LOD2_MODEL_BY_GML_ID = new Map();
+    LOD2_VISIBLE_GML_IDS = new Set();
+    console.warn("LOD2 landmark loading failed:", e);
+  }
+}
+function compileShader(gl, type, source){
+  const shader = gl.createShader(type);
+  gl.shaderSource(shader, source);
+  gl.compileShader(shader);
+  if(!gl.getShaderParameter(shader, gl.COMPILE_STATUS)){
+    throw new Error(gl.getShaderInfoLog(shader) || "shader compile failed");
+  }
+  return shader;
+}
+function createProgram(gl, vertexSource, fragmentSource){
+  const program = gl.createProgram();
+  gl.attachShader(program, compileShader(gl, gl.VERTEX_SHADER, vertexSource));
+  gl.attachShader(program, compileShader(gl, gl.FRAGMENT_SHADER, fragmentSource));
+  gl.linkProgram(program);
+  if(!gl.getProgramParameter(program, gl.LINK_STATUS)){
+    throw new Error(gl.getProgramInfoLog(program) || "program link failed");
+  }
+  return program;
+}
+function makeLod2Layer(){
+  return {
+    id: "lod2-landmarks",
+    type: "custom",
+    renderingMode: "3d",
+    onAdd(_map, gl){
+      this.map = _map;
+      this.program = createProgram(gl,
+        "attribute vec3 a_pos; uniform mat4 u_matrix; void main(){ gl_Position = u_matrix * vec4(a_pos, 1.0); }",
+        "precision mediump float; uniform vec4 u_color; void main(){ gl_FragColor = u_color; }"
+      );
+      this.aPos = gl.getAttribLocation(this.program, "a_pos");
+      this.uMatrix = gl.getUniformLocation(this.program, "u_matrix");
+      this.uColor = gl.getUniformLocation(this.program, "u_color");
+      this.models = LOD2_MODELS.map(model => ({
+        ...model,
+        triangleBuffer: gl.createBuffer(),
+        lineBuffer: gl.createBuffer()
+      }));
+      for(const model of this.models){
+        gl.bindBuffer(gl.ARRAY_BUFFER, model.triangleBuffer);
+        gl.bufferData(gl.ARRAY_BUFFER, model.triangleVertices, gl.STATIC_DRAW);
+        gl.bindBuffer(gl.ARRAY_BUFFER, model.lineBuffer);
+        gl.bufferData(gl.ARRAY_BUFFER, model.lineVertices, gl.STATIC_DRAW);
+      }
+    },
+    render(gl, matrix){
+      if(!this.program || !this.models || !this.models.length || !mode3d || this.map.getZoom() < DATASET_LOAD_ZOOM) return;
+      gl.useProgram(this.program);
+      gl.uniformMatrix4fv(this.uMatrix, false, matrix);
+      gl.enable(gl.DEPTH_TEST);
+      gl.disable(gl.CULL_FACE);
+      gl.enable(gl.BLEND);
+      gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+      gl.enableVertexAttribArray(this.aPos);
+      for(const model of this.models){
+        if(!LOD2_VISIBLE_GML_IDS.has(model.gml_id)) continue;
+        gl.uniform4fv(this.uColor, model.color);
+        gl.bindBuffer(gl.ARRAY_BUFFER, model.triangleBuffer);
+        gl.vertexAttribPointer(this.aPos, 3, gl.FLOAT, false, 0, 0);
+        gl.drawArrays(gl.TRIANGLES, 0, model.triangleVertices.length / 3);
+        gl.uniform4fv(this.uColor, model.lineColor);
+        gl.bindBuffer(gl.ARRAY_BUFFER, model.lineBuffer);
+        gl.vertexAttribPointer(this.aPos, 3, gl.FLOAT, false, 0, 0);
+        gl.drawArrays(gl.LINES, 0, model.lineVertices.length / 3);
+      }
+    }
+  };
+}
 function datasetById(id){ return DATASETS.find(d=>d.dataset_id===id) || null; }
 function datasetForPoint(lon, lat){
   return DATASETS.find(d=>lon>=d.bbox[0]&&lon<=d.bbox[2]&&lat>=d.bbox[1]&&lat<=d.bbox[3]) || null;
@@ -369,12 +670,30 @@ function datasetForPoint(lon, lat){
 function datasetForFeature(feature){
   return datasetById(feature && feature.properties && feature.properties.dataset_id);
 }
-function selectDataset(dataset){
+function populateAreaOptions(ward){
+  selArea.innerHTML='<option value="">地域を選択</option>';
+  const dataset=DATASETS.find(d=>d.ward===ward);
+  if(!dataset) return;
+  selArea.insertAdjacentHTML("beforeend",`<option value="${dataset.dataset_id}" data-dataset-id="${dataset.dataset_id}" data-area-name="全域">全域</option>`);
+  const areas=AREA_CATALOG[ward] || [];
+  areas.forEach((area,index)=>{
+    const option=document.createElement("option");
+    option.value=`${dataset.dataset_id}::${index}`;
+    option.textContent=area.name;
+    option.dataset.datasetId=dataset.dataset_id;
+    option.dataset.areaName=area.name;
+    option.dataset.center=area.center.join(",");
+    selArea.appendChild(option);
+  });
+}
+function selectDataset(dataset, areaName){
   if(!dataset) return;
   selKu.value = dataset.ward;
   selKu.dispatchEvent(new Event("change"));
-  selArea.value = dataset.dataset_id;
+  const option=areaName && Array.from(selArea.options).find(o=>o.dataset.areaName===areaName);
+  selArea.value = option ? option.value : dataset.dataset_id;
   currentAreaForSearch = dataset;
+  selectedAreaName = option ? areaName : "全域";
 }
 async function loadDatasetManifest(){
   for(const url of ["./data/tile-datasets.json", "./data/datasets.json"]){
@@ -389,6 +708,17 @@ async function loadDatasetManifest(){
     }catch(e){}
   }
   DATASETS = DEFAULT_DATASETS;
+}
+async function loadAreaCatalog(){
+  try{
+    const r=await fetch("./data/tokyo-areas.json",{cache:"no-cache"});
+    if(!r.ok) throw new Error("HTTP "+r.status);
+    const payload=await r.json();
+    AREA_CATALOG=payload.wards || {};
+  }catch(e){
+    AREA_CATALOG={};
+    console.warn("Area catalog loading failed:",e);
+  }
 }
 
 function normalizeFeature(f, dataset, index, tile){
@@ -486,6 +816,10 @@ async function ensureDatasetForPoint(dataset, lon, lat){
 }
 
 function updateAreaText(){
+  if(selectedAreaName && currentAreaForSearch && activeDatasets.some(d=>d.dataset_id===currentAreaForSearch.dataset_id)){
+    currentAreaEl.textContent = "表示中の地域：" + currentAreaForSearch.ward + " " + selectedAreaName;
+    return;
+  }
   const labels = activeDatasets.map(d=>d.label);
   currentAreaEl.textContent = labels.length ? "表示中の地域：" + labels.join(" / ") : "表示中の地域：未対応エリア";
 }
@@ -493,7 +827,9 @@ function updateAreaText(){
 function setEmptyView(message){
   BUILDINGS = turf.featureCollection([]);
   VIEW_SHADOW_SRC = [];
+  LOD2_VISIBLE_GML_IDS = new Set();
   map.getSource("buildings").setData(BUILDINGS);
+  if(map.getSource("lod2-hit")) map.getSource("lod2-hit").setData(turf.featureCollection([]));
   map.getSource("shadows").setData(turf.featureCollection([]));
   clearHighlight();
   updateAreaText();
@@ -517,6 +853,10 @@ async function refreshView(opts={}){
     const analysisBox = analysisBoxForCenter(center);
     const candidates = [];
     const addCandidate = (feature)=>{
+      if(isLod2ReplacedFeature(feature)){
+        rememberLod2OriginalFeature(feature);
+        return;
+      }
       if(!featureInBox(feature, analysisBox)) return;
       const distance = distanceFromCenter(feature, center);
       if(distance > ANALYSIS_RADIUS_M) return;
@@ -542,14 +882,24 @@ async function refreshView(opts={}){
     }
     candidates.sort((a,b)=>a.distance-b.distance);
     const features = candidates.slice(0, MAX_VISIBLE_BUILDINGS).map(x=>x.feature);
+    const lod2Visible = LOD2_FEATURES.filter(f=>featureInBox(f, analysisBox) && distanceFromCenter(f, center) <= ANALYSIS_RADIUS_M);
     BUILDINGS = turf.featureCollection(features);
-    VIEW_SHADOW_SRC = features.map(f=>({f, h:Number(f.properties.height)||0})).filter(x=>x.h>0);
+    LOD2_VISIBLE_GML_IDS = new Set(lod2Visible.map(f=>f.properties.gml_id));
+    VIEW_SHADOW_SRC = features.map(f=>({f, h:Number(f.properties.height)||0}))
+      .concat(lod2Visible.map(f=>({
+        f,
+        h:Number(f.properties.height)||0,
+        lod2Vertices: LOD2_MODEL_BY_GML_ID.get(f.properties.gml_id)?.shadowVertices || null
+      })))
+      .filter(x=>x.h>0);
     map.getSource("buildings").setData(BUILDINGS);
+    if(map.getSource("lod2-hit")) map.getSource("lod2-hit").setData(turf.featureCollection(lod2Visible));
+    map.triggerRepaint();
     updateAreaText();
-    if(features.length){
+    if(features.length || lod2Visible.length){
       showError("");
       showNotice("");
-      if(highlightedFeature && !features.some(f=>sameFeature(f, highlightedFeature))) {
+      if(highlightedFeature && !features.concat(lod2Visible).some(f=>sameFeature(f, highlightedFeature))) {
         map.getSource("highlight").setData(turf.featureCollection([highlightedFeature]));
       }
       recompute(true);
@@ -575,6 +925,48 @@ function scheduleRefreshView(){
   viewRefreshTimer = setTimeout(()=>refreshView(), 120);
 }
 
+function mergeShadowSections(sections){
+  let work = sections.slice();
+  while(work.length > 1){
+    const next = [];
+    for(let i=0; i<work.length; i+=2){
+      if(!work[i+1]){ next.push(work[i]); continue; }
+      try{
+        next.push(turf.union(work[i], work[i+1]) || work[i]);
+      }catch(e){
+        next.push(work[i], work[i+1]);
+      }
+    }
+    if(next.length >= work.length) break;
+    work = next;
+  }
+  return work;
+}
+
+function buildLod2ShadowSections(item, tanAlt, sinB, cosB, dxPerM, dyPerM){
+  const levelStep = item.h > 500 ? 8 : 4;
+  const levels = new Map();
+  for(const p of item.lod2Vertices){
+    const height = Math.max(0, p[2]);
+    const key = Math.round(height / levelStep) * levelStep;
+    const L = Math.min(height / tanAlt, MAX_SHADOW_M);
+    const projected = [p[0] + L*sinB*dxPerM, p[1] + L*cosB*dyPerM];
+    if(!levels.has(key)) levels.set(key, []);
+    levels.get(key).push(projected);
+  }
+  const ordered = Array.from(levels.entries()).sort((a,b)=>a[0]-b[0]);
+  const sections = [];
+  for(let i=0; i<ordered.length-1; i++){
+    const hull = convexHull(ordered[i][1].concat(ordered[i+1][1]));
+    if(hull) sections.push(turf.polygon([hull], {shadow_kind:"lod2"}));
+  }
+  if(!sections.length && ordered.length){
+    const hull = convexHull(ordered[0][1]);
+    if(hull) sections.push(turf.polygon([hull], {shadow_kind:"lod2"}));
+  }
+  return mergeShadowSections(sections);
+}
+
 function updateShadows(sun){
   sun = sun || computeSun();
   const zoom = map.getZoom();
@@ -583,7 +975,7 @@ function updateShadows(sun){
     if(BUILDINGS.features.length) showNotice("拡大すると影を表示します");
     return;
   }
-  if(!BUILDINGS.features.length){
+  if(!VIEW_SHADOW_SRC.length){
     map.getSource("shadows").setData(turf.featureCollection([]));
     return;
   }
@@ -597,15 +989,19 @@ function updateShadows(sun){
     const dyPerM=1/110540;
     const tanAlt=Math.tan(sun.altDeg*Math.PI/180);
     for(const item of VIEW_SHADOW_SRC){
-      let L=item.h/tanAlt;
-      if(!isFinite(L)||L<=0) continue;
-      L=Math.min(L,MAX_SHADOW_M);
-      const dx=L*sinB*dxPerM, dy=L*cosB*dyPerM;
-      const ring=item.f.geometry.coordinates[0];
-      const pts=[];
-      for(const p of ring){ pts.push([p[0],p[1]]); pts.push([p[0]+dx,p[1]+dy]); }
-      const hull=convexHull(pts);
-      if(hull) shadows.push(turf.polygon([hull]));
+      if(Array.isArray(item.lod2Vertices) && item.lod2Vertices.length){
+        shadows.push(...buildLod2ShadowSections(item, tanAlt, sinB, cosB, dxPerM, dyPerM));
+      } else {
+        const pts=[];
+        let L=item.h/tanAlt;
+        if(!isFinite(L)||L<=0) continue;
+        L=Math.min(L,MAX_SHADOW_M);
+        const dx=L*sinB*dxPerM, dy=L*cosB*dyPerM;
+        const ring=item.f.geometry.coordinates[0];
+        for(const p of ring){ pts.push([p[0],p[1]]); pts.push([p[0]+dx,p[1]+dy]); }
+        const hull=convexHull(pts);
+        if(hull) shadows.push(turf.polygon([hull]));
+      }
     }
   }
   if(shadows.length===0){
@@ -679,15 +1075,29 @@ function initLayers(){
            "fill-extrusion-height":["get","height"],
            "fill-extrusion-base":0,
            "fill-extrusion-opacity":1}});
+  map.addSource("lod2-hit",{type:"geojson",data:turf.featureCollection([])});
+  map.addLayer({id:"lod2-hit-fill",type:"fill",source:"lod2-hit",
+    paint:{"fill-color":HEIGHT_COLOR,"fill-opacity":0.01}});
+  map.addLayer({id:"lod2-hit-line",type:"line",source:"lod2-hit",
+    paint:{"line-color":"#6b7888","line-width":0.7,"line-opacity":0.7}});
+  map.addLayer({id:"lod2-hit-extrusion",type:"fill-extrusion",source:"lod2-hit",
+    layout:{visibility: mode3d?"visible":"none"},
+    paint:{"fill-extrusion-color":"#e8833a",
+           "fill-extrusion-height":["get","height"],
+           "fill-extrusion-base":0,
+           "fill-extrusion-opacity":0.001}});
 
   // 高亮: 検索/選択された建物（目立つ金色）
   map.addSource("highlight",{type:"geojson",data:turf.featureCollection([])});
   map.addLayer({id:"highlight-fill",type:"fill",source:"highlight",
+    filter:["!=", ["get", "is_lod2_landmark"], true],
     paint:{"fill-color":"#ffd000","fill-opacity":0.6}});
   map.addLayer({id:"highlight-line",type:"line",source:"highlight",
+    filter:["!=", ["get", "is_lod2_landmark"], true],
     paint:{"line-color":"#ffb300","line-width":3}});
   map.addLayer({id:"highlight-extrusion",type:"fill-extrusion",source:"highlight",
     layout:{visibility: mode3d?"visible":"none"},
+    filter:["!=", ["get", "is_lod2_landmark"], true],
     paint:{"fill-extrusion-color":"#ffcb1f","fill-extrusion-height":["get","height"],
            "fill-extrusion-base":0,"fill-extrusion-opacity":1}});
 }
@@ -720,7 +1130,11 @@ function setMode(is3d, skipCamera){
   mode3d=is3d;
   map.setLayoutProperty("bldg-extrusion","visibility", is3d?"visible":"none");
   map.setLayoutProperty("bldg-fill","visibility", is3d?"none":"visible");
+  map.setPaintProperty("lod2-hit-fill","fill-opacity", is3d?0.01:0.42);
+  map.setPaintProperty("lod2-hit-line","line-opacity", is3d?0.35:0.7);
+  map.setLayoutProperty("lod2-hit-extrusion","visibility", is3d?"visible":"none");
   map.setLayoutProperty("highlight-extrusion","visibility", is3d?"visible":"none");
+  map.triggerRepaint();
   recompute();
   el("b3d").classList.toggle("active", is3d);
   el("b2d").classList.toggle("active", !is3d);
@@ -735,11 +1149,13 @@ function setMode(is3d, skipCamera){
 
 timeInput.addEventListener("input",()=>{ timeLabel.textContent=fmtTime(parseFloat(timeInput.value));
   mobileTime.value=timeInput.value; mobileTimeLabel.textContent=timeLabel.textContent;
+  syncMobileRangeFill();
   clearTimeout(window._t); window._t=setTimeout(()=>recompute(),80); });
 timeInput.addEventListener("change",()=>recompute());
 mobileTime.addEventListener("input",()=>{
   timeInput.value=mobileTime.value;
   timeLabel.textContent=mobileTimeLabel.textContent=fmtTime(parseFloat(mobileTime.value));
+  syncMobileRangeFill();
   clearTimeout(window._t); window._t=setTimeout(()=>recompute(),80);
 });
 mobileTime.addEventListener("change",()=>recompute());
@@ -783,6 +1199,18 @@ dateInput.addEventListener("change",()=>{
 el("b2d").addEventListener("click",()=>setMode(false));
 el("b3d").addEventListener("click",()=>setMode(true));
 el("mobileModeToggle").addEventListener("click",()=>setMode(!mode3d));
+el("mobileZoomIn").addEventListener("click",()=>map.zoomIn({duration:220}));
+el("mobileZoomOut").addEventListener("click",()=>map.zoomOut({duration:220}));
+el("mobileCompass").addEventListener("click",()=>map.easeTo({bearing:0,duration:260}));
+el("mobileSheetToggle").addEventListener("click",()=>{
+  const collapsed=panel.classList.toggle("panel-collapsed");
+  panelToggle.setAttribute("aria-expanded",String(!collapsed));
+});
+const updateMobileCompass=()=>{
+  el("mobileCompassNeedle").style.transform=`rotate(${-map.getBearing()}deg)`;
+};
+map.on("rotate",updateMobileCompass);
+updateMobileCompass();
 
 // ========== 住所検索（国土地理院 API + 自動区域判定 + 建物マッチ）==========
 
@@ -802,17 +1230,29 @@ function normalizeAddressInput(raw){
   return s;
 }
 
+function normalizeAreaLotInput(raw){
+  const s=(raw||"").trim()
+    .replace(/[０-９]/g,c=>String.fromCharCode(c.charCodeAt(0)-0xFF10+0x30))
+    .replace(/[ー－―−—]/g,"-")
+    .replace(/\s+/g,"");
+  let m;
+  if((m=s.match(/^(\d+)-(\d+)$/))) return `${m[1]}番${m[2]}号`;
+  if((m=s.match(/^(\d+)$/))) return `${m[1]}番`;
+  return "";
+}
+
 // 建物マッチ + 高亮
 function matchBuilding(lon, lat){
-  if(!BUILDINGS.features.length) return null;
+  const searchable = BUILDINGS.features.concat(LOD2_FEATURES);
+  if(!searchable.length) return null;
   const pt=turf.point([lon,lat]);
   let found=null, inPoly=false, minD=Infinity;
   // 1) polygon 内
-  for(const f of BUILDINGS.features){
+  for(const f of searchable){
     try{ if(turf.booleanPointInPolygon(pt,f)){found=f;inPoly=true;break;} }catch(e){}
   }
   if(!found){
-    for(const f of BUILDINGS.features){
+    for(const f of searchable){
       try{ const c=turf.centroid(f); const d=turf.distance(pt,c,{units:"meters"});
         if(d<minD){minD=d;found=f;} }catch(e){}
     }
@@ -839,8 +1279,11 @@ async function searchAddress(){
   searchInput.value=mobileSearchInput.value=raw;
   if(!raw){ searchMsg.textContent="住所を入力してください"; return; }
 
-  let q = normalizeAddressInput(raw);
-  const selected = currentAreaForSearch || (selArea.value ? datasetById(selArea.value) : null);
+  const selectedOption=selArea.selectedOptions[0];
+  const selected = currentAreaForSearch || datasetById(selectedOption?.dataset.datasetId || selArea.value);
+  const areaName=selectedAreaName && selectedAreaName!=="全域" ? selectedAreaName : "";
+  const areaLot=areaName ? normalizeAreaLotInput(raw) : "";
+  let q = areaLot && selected ? selected.address_prefix + areaName + areaLot : normalizeAddressInput(raw);
   if(/^\d/.test(q) && selected) q = selected.address_prefix + q;
   if(q && !q.startsWith("東京都") && /^[^\d]/.test(q)){
     for(const d of DATASETS) if(q.startsWith(d.address_prefix.replace("東京都",""))) q="東京都"+q;
@@ -872,7 +1315,11 @@ async function searchAddress(){
       clearHighlight(); return;
     }
 
-    selectDataset(dataset);
+    const resultTitle=String(best.properties&&best.properties.title || "");
+    const matchedArea=(AREA_CATALOG[dataset.ward] || [])
+      .filter(area=>resultTitle.includes(area.name))
+      .sort((a,b)=>b.name.length-a.name.length)[0];
+    selectDataset(dataset,matchedArea&&matchedArea.name);
     await ensureDatasetForPoint(dataset, lon, lat);
     map.jumpTo({center:[lon,lat], zoom:DETAIL_ZOOM});
     await refreshView();
@@ -891,6 +1338,7 @@ function saveMapState(bid){
     center:[map.getCenter().lng,map.getCenter().lat],
     zoom:map.getZoom(), pitch:map.getPitch(), bearing:map.getBearing(),
     dataset_id: ds ? ds.dataset_id : "",
+    area_name:selectedAreaName,
     date:dateInput.value, time:timeInput.value,
     buildingId:bid||"",
     viewMode: mode3d?"3D":"2D", mode3d: mode3d
@@ -913,6 +1361,7 @@ function openBuildingPopup(feature, lngLat){
   const geoUrl=props.tile_geojson_path || (dataset ? dataset.geojson_path : "");
   const url="detail.html?buildingId="+encodeURIComponent(buildingId)
     +"&geojson="+encodeURIComponent(geoUrl)
+    +"&lod2="+encodeURIComponent(props.lod2_url || "")
     +"&date="+encodeURIComponent(dateInput.value)
     +"&time="+encodeURIComponent(timeInput.value);
   let html="<div style='color:#111;font-size:13px;line-height:1.6'>";
@@ -932,20 +1381,22 @@ function openBuildingPopup(feature, lngLat){
 
 // 建物クリック
 function onBldgClick(e){
-  const fs=map.queryRenderedFeatures(e.point,{layers:["bldg-fill","bldg-extrusion"]});
+  const lod2Hits=map.queryRenderedFeatures(e.point,{layers:["lod2-hit-extrusion","lod2-hit-fill"]});
+  const fs=lod2Hits.length ? lod2Hits : map.queryRenderedFeatures(e.point,{layers:["bldg-fill","bldg-extrusion"]});
   if(!fs.length) return;
   const gid=fs[0].properties&&fs[0].properties.gml_id;
   const dsid=fs[0].properties&&fs[0].properties.dataset_id;
   const tid=fs[0].properties&&fs[0].properties.tile_id;
   const index=Number(fs[0].properties&&fs[0].properties.feature_index);
-  const real=BUILDINGS.features.find(f=>
+  const allFeatures=LOD2_FEATURES.concat(BUILDINGS.features);
+  const real=allFeatures.find(f=>
     (gid && f.properties.gml_id===gid) ||
     (f.properties.dataset_id===dsid && f.properties.tile_id===tid && f.properties.feature_index===index)
   );
   openBuildingPopup(real||fs[0], e.lngLat);
 }
 map.on("click", onBldgClick);
-["bldg-fill","bldg-extrusion"].forEach(id=>{
+["lod2-hit-fill","lod2-hit-extrusion","bldg-fill","bldg-extrusion"].forEach(id=>{
   map.on("mouseenter",id,()=>map.getCanvas().style.cursor="pointer");
   map.on("mouseleave",id,()=>map.getCanvas().style.cursor="");
 });
@@ -953,21 +1404,40 @@ map.on("click", onBldgClick);
 map.on("load", async ()=>{
   initLayers();
   await loadDatasetManifest();
+  await loadAreaCatalog();
+  await loadLod2Models();
+  // Draw the real mesh before the transparent hit extrusion. The hit volume writes
+  // depth even at near-zero opacity and would otherwise cut holes in the mesh.
+  if(LOD2_MODELS.length) map.addLayer(makeLod2Layer(), "lod2-hit-extrusion");
   const wards=[...new Set(DATASETS.map(d=>d.ward))];
   for(const ward of wards) selKu.insertAdjacentHTML("beforeend",`<option value="${ward}">${ward}</option>`);
   selKu.addEventListener("change",()=>{
-    selArea.innerHTML='<option value="">地域を選択</option>';
-    for(const d of DATASETS.filter(x=>x.ward===selKu.value)){
-      selArea.insertAdjacentHTML("beforeend",`<option value="${d.dataset_id}">${d.area}</option>`);
-    }
+    currentAreaForSearch=null;
+    selectedAreaName="";
+    populateAreaOptions(selKu.value);
+    currentAreaEl.textContent=selKu.value ? "表示中の地域：地域を選択してください" : "表示中の地域：未選択";
   });
   selArea.addEventListener("change",()=>{
-    const dataset = datasetById(selArea.value);
-    if(!dataset) return;
+    const option=selArea.selectedOptions[0];
+    const dataset = datasetById(option?.dataset.datasetId || selArea.value);
+    if(!dataset){
+      currentAreaForSearch=null;
+      selectedAreaName="";
+      currentAreaEl.textContent="表示中の地域：地域を選択してください";
+      return;
+    }
     currentAreaForSearch = dataset;
+    selectedAreaName = option.dataset.areaName || "全域";
     clearHighlight();
     showNotice("");
-    map.flyTo({center:dataset.center, zoom:17, duration:800});
+    const center=(option.dataset.center || "").split(",").map(Number);
+    if(center.length===2 && center.every(Number.isFinite)){
+      map.flyTo({center,zoom:17,duration:800});
+    }else{
+      map.fitBounds([[dataset.bbox[0],dataset.bbox[1]],[dataset.bbox[2],dataset.bbox[3]]],
+        {padding:48,maxZoom:15,duration:800});
+    }
+    currentAreaEl.textContent="表示中の地域："+dataset.ward+" "+selectedAreaName;
   });
 
   const _params=new URLSearchParams(location.search);
@@ -979,7 +1449,7 @@ map.on("load", async ()=>{
     try{
       const s=JSON.parse(saved);
       const dataset = datasetById(s.dataset_id);
-      if(dataset) selectDataset(dataset);
+      if(dataset) selectDataset(dataset,s.area_name||"");
       if(s.date) dateInput.value=s.date;
       if(s.time!=null){
         timeInput.value=mobileTime.value=s.time;
@@ -989,7 +1459,7 @@ map.on("load", async ()=>{
       map.jumpTo({center:s.center, zoom:s.zoom, pitch:s.pitch||0, bearing:s.bearing||0});
       refreshView().then(()=>{
         let f=null; const bid=s.buildingId||"";
-        if(bid && !bid.startsWith("index-")) f=BUILDINGS.features.find(x=>x.properties.gml_id===bid);
+        if(bid && !bid.startsWith("index-")) f=LOD2_FEATURES.concat(BUILDINGS.features).find(x=>x.properties.gml_id===bid);
         if(!f && bid.startsWith("index-")){
           const i=parseInt(bid.replace("index-",""),10);
           f=BUILDINGS.features.find(x=>x.properties.feature_index===i && (!dataset || x.properties.dataset_id===dataset.dataset_id));
@@ -1010,6 +1480,15 @@ map.on("load", async ()=>{
     recomputeSunOnly();
   }
 });
+</script>
+<script>
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("./sw.js").catch((err) => {
+      console.warn("Service worker registration failed:", err);
+    });
+  });
+}
 </script>
 </body>
 </html>

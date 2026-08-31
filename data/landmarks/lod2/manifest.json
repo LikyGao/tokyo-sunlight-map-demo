@@ -1,0 +1,29 @@
+{
+  "schema_version": 1,
+  "models": [
+    {
+      "id": "tokyo_tower",
+      "name": "東京タワー",
+      "gml_id": "bldg_7aff4a51-be8b-405b-abe4-ac489697cbc8",
+      "url": "./data/landmarks/lod2/tokyo_tower_lod2_surfaces.json",
+      "color": [232, 131, 58, 255],
+      "line_color": [117, 94, 72, 120]
+    },
+    {
+      "id": "tokyo_skytree",
+      "name": "東京スカイツリー",
+      "gml_id": "bldg_58ab8c46-8369-49c4-86cf-6912bbc4efe1",
+      "url": "./data/landmarks/lod2/tokyo_skytree_lod2_surfaces.json",
+      "color": [232, 131, 58, 255],
+      "line_color": [117, 94, 72, 120]
+    },
+    {
+      "id": "roppongi_hills_mori_tower",
+      "name": "六本木ヒルズ森タワー",
+      "gml_id": "bldg_6006c155-ea28-4848-81b0-c37444f2bd96",
+      "url": "./data/landmarks/lod2/roppongi_hills_mori_tower_lod2_surfaces.json",
+      "color": [232, 131, 58, 255],
+      "line_color": [117, 94, 72, 120]
+    }
+  ]
+}

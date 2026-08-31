@@ -3,7 +3,17 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#0795f2" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-title" content="日当たりマップ" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="description" content="東京の建物と太陽位置から日当たりを確認する地図アプリです。" />
 <title>詳細3Dモード — 東京 日当たりマップ</title>
+<link rel="manifest" href="./manifest.webmanifest" />
+<link rel="apple-touch-icon" href="./assets/icons/apple-touch-icon.png" />
+<link rel="icon" type="image/png" sizes="32x32" href="./assets/icons/favicon-32.png" />
+<link rel="icon" type="image/png" sizes="16x16" href="./assets/icons/favicon-16.png" />
 <script src="https://cdnjs.cloudflare.com/ajax/libs/suncalc/1.9.0/suncalc.min.js"></script>
 <script type="importmap">
 { "imports": {
@@ -90,15 +100,59 @@ input[type=range]{width:100%}
   #mobileTimeline strong{color:#ffb53d;font-size:18px;font-variant-numeric:tabular-nums}
   #mobileTimeline input{display:block;width:100%;height:36px;margin:1px 0 0;accent-color:#ffb53d}
 }
+@media (max-width:600px){
+  :root{--mobile-ink:#13202a;--mobile-muted:#68737d;--mobile-accent:#f6a524;--mobile-sheet:#131920}
+  #panel{max-height:min(70dvh,620px);padding:0 16px calc(14px + env(safe-area-inset-bottom));
+    border-color:#303943;border-radius:12px 12px 0 0;background:rgba(19,25,32,.98);
+    box-shadow:0 -10px 28px rgba(10,17,23,.24)}
+  #panel.panel-collapsed{max-height:calc(128px + env(safe-area-inset-bottom))}
+  .mobile-back{top:calc(16px + env(safe-area-inset-top));left:16px;right:auto;width:44px;height:44px;min-height:44px;
+    display:grid;place-items:center;padding:0;border:1px solid rgba(18,32,42,.08);border-radius:10px;
+    background:rgba(255,255,255,.97);color:var(--mobile-ink);box-shadow:0 4px 14px rgba(14,25,33,.18);
+    backdrop-filter:blur(10px);text-decoration:none}
+  .mobile-back::before{content:"←";display:block;width:auto;height:auto;border-radius:0;background:transparent;
+    color:var(--mobile-ink);font:500 24px/1 system-ui,sans-serif}
+  .mobile-back:hover{background:#fff}
+  #compass{top:calc(16px + env(safe-area-inset-top));right:16px;width:44px;height:44px;border-radius:10px;
+    border:1px solid rgba(18,32,42,.08);background:rgba(255,255,255,.97);color:var(--mobile-ink);
+    box-shadow:0 4px 14px rgba(14,25,33,.18);backdrop-filter:blur(10px)}
+  #compassNeedle{top:7px;left:21px;width:2px;height:22px;background:var(--mobile-ink);
+    transform-origin:50% 15px;border-radius:2px}
+  #compassNeedle::after{top:-3px;left:-4px;border-left-width:5px;border-right-width:5px;
+    border-bottom:10px solid #df4b3f}
+  #compass span{position:absolute;left:0;right:0;bottom:3px;margin:0;color:var(--mobile-muted);font-size:9px;line-height:1;text-align:center}
+  #mobileTimeline{height:128px;margin:0 -16px;padding:17px 16px 12px;border:0;
+    background:var(--mobile-sheet);cursor:ns-resize}
+  #mobileTimeline::before{width:42px;height:4px;margin:-10px auto 10px;background:#74808d}
+  #mobileTimeline .timeline-head{height:38px;align-items:center;color:#9ca7b1}
+  #mobileTimeline strong{color:var(--mobile-accent);font-size:22px;line-height:1}
+  #mobileTimeline .timeline-date{font-size:11px;font-weight:600}
+  .sheet-toggle{position:relative;width:36px;height:36px;padding:0;border:0;border-radius:8px;
+    background:#202832;color:transparent;cursor:pointer}
+  .sheet-toggle::before,.sheet-toggle::after{content:"";position:absolute;top:17px;width:9px;height:2px;
+    border-radius:2px;background:#c7cfd6}
+  .sheet-toggle::before{left:10px;transform:rotate(-45deg)}
+  .sheet-toggle::after{right:10px;transform:rotate(45deg)}
+  #panel:not(.panel-collapsed) .sheet-toggle::before{transform:rotate(45deg)}
+  #panel:not(.panel-collapsed) .sheet-toggle::after{transform:rotate(-45deg)}
+  #mobileTimeline input{-webkit-appearance:none;appearance:none;height:34px;margin:4px 0 0;background:transparent}
+  #mobileTimeline input::-webkit-slider-runnable-track{height:4px;border-radius:4px;
+    background:linear-gradient(to right,var(--mobile-accent) 0,var(--mobile-accent) var(--range-pct,50%),#515a64 var(--range-pct,50%),#515a64 100%)}
+  #mobileTimeline input::-webkit-slider-thumb{-webkit-appearance:none;width:20px;height:20px;margin-top:-8px;
+    border:0;border-radius:50%;background:var(--mobile-accent);box-shadow:0 1px 4px rgba(0,0,0,.2)}
+  #mobileTimeline input::-moz-range-track{height:4px;border-radius:4px;background:#515a64}
+  #mobileTimeline input::-moz-range-progress{height:4px;border-radius:4px;background:var(--mobile-accent)}
+  #mobileTimeline input::-moz-range-thumb{width:20px;height:20px;border:0;border-radius:50%;background:var(--mobile-accent)}
+}
 </style>
 </head>
 <body>
 <canvas id="c"></canvas>
-<div id="compass" title="北方向"><div id="compassNeedle"></div><span>北</span></div>
-<a class="mobile-back" href="index.html?restore=1" aria-label="地図に戻る">地図に戻る</a>
+<div id="compass" title="北方向"><div id="compassNeedle"></div><span>N</span></div>
+<a class="mobile-back" href="index.html?restore=1" aria-label="地図に戻る"></a>
 <div id="panel">
-  <div id="mobileTimeline" aria-label="時刻設定。上にスワイプして日付と判定結果を表示">
-    <div class="timeline-head"><span>時刻</span><strong id="mobileTimeLabel">12:00</strong><span id="timelineHint">上にスワイプ</span></div>
+  <div id="mobileTimeline" aria-label="時刻設定">
+    <div class="timeline-head"><span class="timeline-date">日照シミュレーション</span><strong id="mobileTimeLabel">12:00</strong><button id="mobileSheetToggle" class="sheet-toggle" type="button" aria-label="設定を開閉"></button></div>
     <input type="range" id="mobileTime" min="0" max="24" step="0.25" value="12" aria-label="時刻" />
   </div>
   <button id="panelToggle" class="panel-toggle" type="button" aria-expanded="true" aria-controls="panelContent">
@@ -163,15 +217,21 @@ const statusEl = el("status"), errMsg = el("errMsg"), bidEl = el("bid");
 const compassNeedle = el("compassNeedle");
 const panel = el("panel"), panelToggle = el("panelToggle");
 const mobileTime = el("mobileTime"), mobileTimeLabel = el("mobileTimeLabel");
-const mobileTimeline = el("mobileTimeline"), timelineHint = el("timelineHint");
+const mobileTimeline = el("mobileTimeline"), mobileSheetToggle = el("mobileSheetToggle");
+function syncMobileRangeFill(){
+  const min=Number(mobileTime.min)||0, max=Number(mobileTime.max)||24, value=Number(mobileTime.value)||0;
+  mobileTime.style.setProperty("--range-pct",`${((value-min)/(max-min))*100}%`);
+}
 
 function setPanelCollapsed(collapsed){
   panel.classList.toggle("panel-collapsed",collapsed);
   panelToggle.setAttribute("aria-expanded",String(!collapsed));
-  timelineHint.textContent=collapsed ? "上にスワイプ" : "下にスワイプして閉じる";
 }
 
 panelToggle.addEventListener("click",()=>{
+  setPanelCollapsed(!panel.classList.contains("panel-collapsed"));
+});
+mobileSheetToggle.addEventListener("click",()=>{
   setPanelCollapsed(!panel.classList.contains("panel-collapsed"));
 });
 if(matchMedia("(max-width: 600px)").matches){
@@ -194,9 +254,16 @@ mobileTimeline.addEventListener("pointerup",event=>{
 const params = new URLSearchParams(location.search);
 const buildingId = params.get("buildingId") || "";
 const geojsonUrl = params.get("geojson") || "./data/higashikasai_buildings.geojson";
+const lod2UrlParam = params.get("lod2") || "";
+const BUILTIN_LOD2_URLS = {
+  "bldg_7aff4a51-be8b-405b-abe4-ac489697cbc8": "./data/landmarks/lod2/tokyo_tower_lod2_surfaces.json",
+  "bldg_58ab8c46-8369-49c4-86cf-6912bbc4efe1": "./data/landmarks/lod2/tokyo_skytree_lod2_surfaces.json",
+  "bldg_6006c155-ea28-4848-81b0-c37444f2bd96": "./data/landmarks/lod2/roppongi_hills_mori_tower_lod2_surfaces.json"
+};
 const initTime = parseFloat(params.get("time") || "12");
 timeInput.value = initTime;
 mobileTime.value = initTime;
+syncMobileRangeFill();
 bidEl.textContent = "建物を読み込み中…";
 
 const pad2 = n => String(n).padStart(2, "0");
@@ -227,6 +294,56 @@ function centroid(ring) {
   for(let i=0;i<n;i++){sx+=ring[i][0];sy+=ring[i][1];}
   return [sx/n, sy/n];
 }
+function normalizeLod2SurfaceRings(surface){
+  if(!Array.isArray(surface) || !surface.length) return [];
+  const first = surface[0];
+  if(Array.isArray(first) && typeof first[0] === "number") return [surface];
+  return surface.filter(ring => Array.isArray(ring) && ring.length);
+}
+function lod2Footprint(data){
+  const pts = [];
+  for(const surface of data.surfaces || []){
+    for(const ring of normalizeLod2SurfaceRings(surface)){
+      for(const p of ring){
+        if(Array.isArray(p) && Number.isFinite(p[0]) && Number.isFinite(p[1])) pts.push([p[0], p[1]]);
+      }
+    }
+  }
+  pts.sort((a,b)=>a[0]-b[0]||a[1]-b[1]);
+  if(pts.length<3) return null;
+  const cross=(o,a,b)=>(a[0]-o[0])*(b[1]-o[1])-(a[1]-o[1])*(b[0]-o[0]);
+  const lo=[],up=[];
+  for(const p of pts){while(lo.length>=2&&cross(lo[lo.length-2],lo[lo.length-1],p)<=0)lo.pop();lo.push(p);}
+  for(let i=pts.length-1;i>=0;i--){const p=pts[i];while(up.length>=2&&cross(up[up.length-2],up[up.length-1],p)<=0)up.pop();up.push(p);}
+  lo.pop();up.pop();const h=lo.concat(up);h.push(h[0]);return h;
+}
+function lod2GeometryHeight(data){
+  return Math.max(
+    Number(data && data.height) || 0,
+    Math.max(0, (data && data.bbox && data.bbox[5] - data.bbox[2]) || 0)
+  );
+}
+const LOD2_DATA_CACHE = new Map();
+async function lod2UrlForBuilding(gmlId, allowUrlParam=true){
+  if(allowUrlParam && lod2UrlParam) return lod2UrlParam;
+  if(BUILTIN_LOD2_URLS[gmlId]) return BUILTIN_LOD2_URLS[gmlId];
+  try{
+    const manifest = await fetch("./data/landmarks/lod2/manifest.json", {cache:"no-cache"}).then(r=>r.ok?r.json():null);
+    const model = manifest && Array.isArray(manifest.models) ? manifest.models.find(m=>m.gml_id===gmlId) : null;
+    return model ? model.url : "";
+  }catch(e){ return ""; }
+}
+async function loadLod2Data(gmlId, allowUrlParam=true){
+  const url = await lod2UrlForBuilding(gmlId, allowUrlParam);
+  if(!url) return null;
+  if(LOD2_DATA_CACHE.has(url)) return LOD2_DATA_CACHE.get(url);
+  try{
+    const r = await fetch(url, {cache:"no-cache"});
+    const data = r.ok ? await r.json() : null;
+    if(data) LOD2_DATA_CACHE.set(url, data);
+    return data;
+  }catch(e){ return null; }
+}
 
 // 方向名(8方位)
 const DIR_NAMES=["北","北東","東","南東","南","南西","西","北西"];
@@ -242,9 +359,10 @@ renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.setClearColor(0xd4e6f1);
 
 const scene = new THREE.Scene();
-const camera = new THREE.PerspectiveCamera(50, window.innerWidth/window.innerHeight, 1, 2000);
+const camera = new THREE.PerspectiveCamera(50, window.innerWidth/window.innerHeight, 1, 3000);
 // 進入前の地図視角(zoom/pitch/bearing)を sessionStorage から読み、初期カメラに反映
 let _entry={bearing:0,pitch:45,zoom:18};
+let _entryDistance=240, _entryElev=Math.PI/4, _entryBearing=0;
 try{ const st=JSON.parse(sessionStorage.getItem("sunmap")||"{}");
   if(st&&typeof st.bearing==="number"){
     _entry.bearing=st.bearing;
@@ -258,6 +376,7 @@ try{ const st=JSON.parse(sessionStorage.getItem("sunmap")||"{}");
   // map pitch: 0=真上見下ろし → 高い仰角 / 60=斜め → 低い仰角
   const elev = Math.max(12, 90 - _entry.pitch) * Math.PI/180;
   const br = _entry.bearing * Math.PI/180;
+  _entryDistance=D; _entryElev=elev; _entryBearing=br;
   const horiz = D * Math.cos(elev);
   camera.position.set(horiz*Math.sin(br), D*Math.sin(elev), horiz*Math.cos(br));
 })();
@@ -348,6 +467,70 @@ function buildMesh(feature, ref, material) {
   mesh.receiveShadow = true;
   return mesh;
 }
+function buildLod2Mesh(data, ref, material, lineColor=0x755e48) {
+  const vertices = [];
+  const indices = [];
+  const lineVertices = [];
+  const groundElevation = Number(data.ground_elevation ?? (data.bbox && data.bbox[2])) || 0;
+  const localHeight = p => Math.max(0, (Number(p[2]) || groundElevation) - groundElevation);
+  for(const surface of data.surfaces || []){
+    for(const ring of normalizeLod2SurfaceRings(surface)){
+      const clean = ring.filter(p => Array.isArray(p) && p.length >= 3).slice();
+      if(clean.length > 1){
+        const a = clean[0], b = clean[clean.length - 1];
+        if(Math.abs(a[0]-b[0]) < 1e-10 && Math.abs(a[1]-b[1]) < 1e-10 && Math.abs((a[2]||0)-(b[2]||0)) < 1e-6) clean.pop();
+      }
+      if(clean.length < 3) continue;
+      const base = vertices.length / 3;
+      for(const p of clean){
+        const [x, y] = toLocal(p[0], p[1], ref);
+        vertices.push(x, localHeight(p), -y);
+      }
+      for(let i=1; i<clean.length-1; i++) indices.push(base, base+i, base+i+1);
+      for(let i=0; i<clean.length; i++){
+        const a = clean[i], b = clean[(i+1)%clean.length];
+        const [ax, ay] = toLocal(a[0], a[1], ref);
+        const [bx, by] = toLocal(b[0], b[1], ref);
+        lineVertices.push(ax, localHeight(a), -ay, bx, localHeight(b), -by);
+      }
+    }
+  }
+  const group = new THREE.Group();
+  const geom = new THREE.BufferGeometry();
+  geom.setAttribute("position", new THREE.Float32BufferAttribute(vertices, 3));
+  geom.setIndex(indices);
+  geom.computeVertexNormals();
+  const mesh = new THREE.Mesh(geom, material);
+  mesh.castShadow = true;
+  mesh.receiveShadow = true;
+  group.add(mesh);
+
+  const lineGeom = new THREE.BufferGeometry();
+  lineGeom.setAttribute("position", new THREE.Float32BufferAttribute(lineVertices, 3));
+  const lines = new THREE.LineSegments(lineGeom, new THREE.LineBasicMaterial({
+    color: lineColor,
+    transparent: true,
+    opacity: 0.28
+  }));
+  group.add(lines);
+  return group;
+}
+function frameLod2Target(height, targetX=0, targetZ=0){
+  const h = Math.max(3, Number(height) || 3);
+  const distance = Math.max(_entryDistance, h * 1.48);
+  const targetY = h * 0.44;
+  const horiz = distance * Math.cos(_entryElev);
+  controls.target.set(targetX, targetY, targetZ);
+  camera.position.set(
+    targetX + horiz * Math.sin(_entryBearing),
+    targetY + distance * Math.sin(_entryElev),
+    targetZ + horiz * Math.cos(_entryBearing)
+  );
+  camera.near = Math.max(0.5, distance / 1000);
+  camera.far = Math.max(3000, distance * 4);
+  camera.updateProjectionMatrix();
+  controls.update();
+}
 
 // === データ読み込み & シーン構築 ===
 let targetFeature = null;
@@ -365,14 +548,17 @@ async function init() {
     return;
   }
 
+  const lod2Data = await loadLod2Data(buildingId);
+  const targetBuildingId = (lod2Data && lod2Data.gml_id) || buildingId;
+
   // 対象建物を探す
   // 安定IDを優先(gml_id)。暫定で index- プレフィックスにも対応。
   // ※ 将来は安定IDに統一すること
-  if (buildingId.startsWith("index-")) {
-    const idx = parseInt(buildingId.replace("index-",""), 10);
+  if (targetBuildingId.startsWith("index-")) {
+    const idx = parseInt(targetBuildingId.replace("index-",""), 10);
     targetFeature = fc.features[idx] || null;
   } else {
-    targetFeature = fc.features.find(f => f.properties.gml_id === buildingId) || null;
+    targetFeature = fc.features.find(f => f.properties.gml_id === targetBuildingId) || null;
   }
   if (!targetFeature) {
     errMsg.textContent = "建物が見つかりません: " + buildingId;
@@ -380,26 +566,52 @@ async function init() {
     return;
   }
 
-  const tgtRing = targetFeature.geometry.coordinates[0];
+  const lod2Ring = lod2Data ? lod2Footprint(lod2Data) : null;
+  const tgtRing = lod2Ring || targetFeature.geometry.coordinates[0];
   const tgtC = centroid(tgtRing); // [lng, lat]
   const ref = tgtC; // ローカル座標の原点
 
   // 対象建物のメッシュ
-  scene.add(buildMesh(targetFeature, ref, MAT_TARGET));
+  if(lod2Data){
+    scene.add(buildLod2Mesh(lod2Data, ref, MAT_TARGET));
+    frameLod2Target(lod2GeometryHeight(lod2Data) || targetFeature.properties.height);
+  } else {
+    scene.add(buildMesh(targetFeature, ref, MAT_TARGET));
+  }
 
   // 周辺建物（対象建物の近傍のみ）
+  let tallestNeighborLod2 = null;
   for (const f of fc.features) {
-    if (f === targetFeature) continue;
+    if (f === targetFeature || (targetBuildingId && f.properties.gml_id === targetBuildingId)) continue;
     const c = centroid(f.geometry.coordinates[0]);
     const d = dist2d(c, tgtC);
     if (d > NEIGHBOR_RADIUS) continue;
     const [lx, ly] = toLocal(c[0], c[1], ref);
-    neighbors.push({ feature: f, cx: lx, cy: ly, height: Number(f.properties.height)||3 });
-    scene.add(buildMesh(f, ref, MAT_NEIGHBOR));
+    const neighborGmlId = f.properties && f.properties.gml_id;
+    const neighborLod2 = BUILTIN_LOD2_URLS[neighborGmlId]
+      ? await loadLod2Data(neighborGmlId, false)
+      : null;
+    const neighborHeight = neighborLod2
+      ? lod2GeometryHeight(neighborLod2)
+      : Number(f.properties.height) || 3;
+    if(neighborLod2 && (!tallestNeighborLod2 || neighborHeight > tallestNeighborLod2.height)){
+      tallestNeighborLod2 = { height:neighborHeight, x:lx, z:-ly };
+    }
+    neighbors.push({ feature: f, cx: lx, cy: ly, height: neighborHeight });
+    scene.add(neighborLod2
+      ? buildLod2Mesh(neighborLod2, ref, MAT_NEIGHBOR, 0x666666)
+      : buildMesh(f, ref, MAT_NEIGHBOR));
+  }
+  if(!lod2Data && tallestNeighborLod2){
+    frameLod2Target(
+      tallestNeighborLod2.height,
+      tallestNeighborLod2.x * 0.5,
+      tallestNeighborLod2.z * 0.5
+    );
   }
 
-  const tgtH = Number(targetFeature.properties.height)||3;
-  bidEl.textContent = `高さ: ${tgtH.toFixed(1)}m　周辺: ${neighbors.length}棟`;
+  const tgtH = Number((lod2Data && lod2GeometryHeight(lod2Data)) || targetFeature.properties.height)||3;
+  bidEl.textContent = `高さ: ${tgtH.toFixed(1)}m　周辺: ${neighbors.length}棟${lod2Data ? "　PLATEAU LOD2" : ""}`;
   updateSun();
 }
 
@@ -469,12 +681,14 @@ function updateSun() {
 timeInput.addEventListener("input", () => {
   timeLabel.textContent = fmtTime(parseFloat(timeInput.value));
   mobileTime.value = timeInput.value;
+  syncMobileRangeFill();
   mobileTimeLabel.textContent = timeLabel.textContent;
   updateSun();
 });
 mobileTime.addEventListener("input", () => {
   timeInput.value = mobileTime.value;
   timeLabel.textContent = mobileTimeLabel.textContent = fmtTime(parseFloat(mobileTime.value));
+  syncMobileRangeFill();
   updateSun();
 });
 
@@ -497,6 +711,15 @@ function animate() {
 }
 animate();
 init();
+</script>
+<script>
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("./sw.js").catch((err) => {
+      console.warn("Service worker registration failed:", err);
+    });
+  });
+}
 </script>
 </body>
 </html>

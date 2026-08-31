@@ -1,0 +1,11 @@
+<resources>
+    <style name="Theme.TokyoSunlightMap" parent="android:style/Theme.Material.Light.NoActionBar">
+        <item name="android:fontFamily">sans</item>
+        <item name="android:windowActionModeOverlay">true</item>
+        <item name="android:windowBackground">@color/app_surface</item>
+        <item name="android:colorAccent">#F6A524</item>
+        <item name="android:statusBarColor">@color/app_surface</item>
+        <item name="android:navigationBarColor">@color/app_surface</item>
+        <item name="android:windowLightStatusBar">false</item>
+    </style>
+</resources>

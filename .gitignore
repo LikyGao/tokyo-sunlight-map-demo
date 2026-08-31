@@ -19,3 +19,10 @@ __pycache__/
 # Codex workspace scratch/output folders.
 work/
 outputs/
+
+# Android build output and machine-local SDK settings.
+android-app/.gradle/
+android-app/.android/
+android-app/local.properties
+android-app/app/build/
+android-app/build/

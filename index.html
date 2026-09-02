@@ -289,8 +289,11 @@ const DEFAULT_DATASETS = [
 ];
 let DATASETS = DEFAULT_DATASETS;
 
-const INIT_CENTER = [139.83, 35.66];
-const INIT_ZOOM = 12;
+// Start at Tokyo Tower so the first screen immediately communicates 3D sunlight and shadows.
+const INIT_CENTER = [139.745469, 35.658585];
+const INIT_ZOOM = 15.8;
+const INIT_PITCH = 58;
+const INIT_BEARING = -28;
 const DATASET_LOAD_ZOOM = 14.5;
 const SHADOW_ZOOM = 15;
 const DETAIL_ZOOM = 18.5;
@@ -1051,6 +1054,7 @@ function recompute(){
 
 const map=new maplibregl.Map({
   container:"map", center:INIT_CENTER, zoom:INIT_ZOOM,
+  pitch:INIT_PITCH, bearing:INIT_BEARING,
   style:{ version:8,
     glyphs:"https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf",
     sources:{ osm:{ type:"raster",
@@ -1474,10 +1478,11 @@ map.on("load", async ()=>{
       refreshView();
     }
   } else {
-    setMode(true);
+    setMode(true, true);
     currentAreaEl.textContent = "表示中の地域：未選択";
     showNotice("");
     recomputeSunOnly();
+    refreshView();
   }
 });
 </script>

@@ -1,4 +1,4 @@
-const CACHE_NAME = "tokyo-sunlight-map-v16";
+const CACHE_NAME = "tokyo-sunlight-map-v17";
 const CORE_ASSETS = [
   "./",
   "./index.html",

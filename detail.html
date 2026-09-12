@@ -53,6 +53,22 @@ input[type=range]{width:100%}
 .notes{margin-top:10px;font-size:10.5px;color:#7e8a98;line-height:1.6;border-top:1px solid #2b3340;padding-top:8px}
 #errMsg{color:#ff8a8a;font-size:13px;margin-top:10px}
 #bid{font-size:11px;color:#9aa6b4;margin-top:6px;word-break:break-all}
+.floor-section{margin-top:12px;padding-top:12px;border-top:1px solid #2b3340}
+.floor-heading{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.floor-heading strong{font-size:12px;color:#e8edf2}
+.floor-toggle,.floor-actions button{min-height:34px;padding:6px 10px;border:1px solid #3a4654;border-radius:6px;
+  background:#222a33;color:#e8edf2;font:600 12px/1.2 system-ui,"Yu Gothic",Meiryo,sans-serif;cursor:pointer}
+.floor-toggle:hover,.floor-actions button:hover{background:#2c3640}
+.floor-controls{margin-top:10px}
+.floor-inputs{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.floor-inputs label{margin:0;color:#8d99a8}
+.floor-inputs input{width:100%;min-height:38px;margin-top:4px;padding:6px 8px;border:1px solid #2b3340;
+  border-radius:6px;background:#0f141b;color:#e8edf2;font-size:15px;font-variant-numeric:tabular-nums}
+.floor-actions{display:flex;gap:8px;margin-top:9px}
+.floor-actions button{flex:1}
+.floor-actions .floor-apply{background:#ffb53d;border-color:#ffb53d;color:#1a1205}
+.floor-result{min-height:1.4em;margin-top:8px;color:#ffca67;font-size:11px;line-height:1.45}
+.floor-error{min-height:1.4em;margin-top:5px;color:#ff8a8a;font-size:11px}
 #compass{position:absolute;top:14px;right:14px;z-index:4;width:56px;height:56px;border-radius:50%;
   background:rgba(255,255,255,.86);border:1px solid rgba(20,28,35,.22);display:grid;place-items:center;
   color:#1b2730;font-size:11px;font-weight:700;box-shadow:0 3px 12px rgba(0,0,0,.18)}
@@ -107,6 +123,8 @@ input[type=range]{width:100%}
   input[type=range]{height:34px}
   #panelContent .time-section{display:none}
   .date-row button{min-height:44px;padding:8px;font-size:13px;touch-action:manipulation}
+  .floor-toggle,.floor-actions button{min-height:44px;font-size:13px;touch-action:manipulation}
+  .floor-inputs input{min-height:44px;font-size:16px}
   .readout{justify-content:space-between;padding:0 8px}
 #compass{
   top:calc(62px + env(safe-area-inset-top));
@@ -210,8 +228,30 @@ input[type=range]{width:100%}
   <div id="status">読み込み中…</div>
   <div id="bid"></div>
   <div id="errMsg"></div>
+  <section class="floor-section" aria-labelledby="floorHeading">
+    <div class="floor-heading">
+      <strong id="floorHeading">階別の日当たり</strong>
+      <button id="floorToggle" class="floor-toggle" type="button" aria-expanded="false" aria-controls="floorControls">階別表示を設定</button>
+    </div>
+    <div id="floorControls" class="floor-controls" hidden>
+      <div class="floor-inputs">
+        <label for="totalFloors">建物の総階数
+          <input id="totalFloors" type="number" min="1" max="200" step="1" inputmode="numeric" placeholder="例: 20" />
+        </label>
+        <label for="targetFloor">確認する階
+          <input id="targetFloor" type="number" min="1" max="200" step="1" inputmode="numeric" placeholder="例: 7" />
+        </label>
+      </div>
+      <div class="floor-actions">
+        <button id="floorApply" class="floor-apply" type="button">この階を表示</button>
+        <button id="floorClear" type="button">解除</button>
+      </div>
+      <div id="floorResult" class="floor-result" aria-live="polite"></div>
+      <div id="floorError" class="floor-error" aria-live="polite"></div>
+    </div>
+  </section>
   <div class="notes">
-    ※ この詳細3D表示は階数別の日照を厳密に判定するものではなく、周辺建物との位置関係から大まかに確認するためのものです。
+    ※ 階別表示は建物の高さを総階数で等分した推定です。実際の階高、住戸位置、窓の方向は反映していません。
   </div>
   </div>
 </div>
@@ -225,7 +265,10 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
    太陽方向の光照/遮蔽を可視化。
    ========================================================= */
 const DEFAULT_LOCATION = { lat: 35.6590, lng: 139.8770 };
-const NEIGHBOR_RADIUS = 200; // m
+const BASE_NEIGHBOR_RADIUS = 200; // m
+const PROBE_RADIUS = 280; // m
+const MAX_NEIGHBOR_RADIUS = 520; // m
+const MAX_VISIBLE_NEIGHBORS = 1400;
 const DEG_LAT = 110540;
 let sunOrigin = DEFAULT_LOCATION;
 
@@ -238,6 +281,10 @@ const compassNeedle = el("compassNeedle");
 const panel = el("panel"), panelToggle = el("panelToggle");
 const mobileTime = el("mobileTime"), mobileTimeLabel = el("mobileTimeLabel");
 const mobileTimeline = el("mobileTimeline"), mobileSheetToggle = el("mobileSheetToggle");
+const floorToggle = el("floorToggle"), floorControls = el("floorControls");
+const totalFloorsInput = el("totalFloors"), targetFloorInput = el("targetFloor");
+const floorApply = el("floorApply"), floorClear = el("floorClear");
+const floorResult = el("floorResult"), floorError = el("floorError");
 function syncMobileRangeFill(){
   const min=Number(mobileTime.min)||0, max=Number(mobileTime.max)||24, value=Number(mobileTime.value)||0;
   mobileTime.style.setProperty("--range-pct",`${((value-min)/(max-min))*100}%`);
@@ -313,6 +360,94 @@ function centroid(ring) {
   let sx=0,sy=0; const n=ring.length-1;
   for(let i=0;i<n;i++){sx+=ring[i][0];sy+=ring[i][1];}
   return [sx/n, sy/n];
+}
+function footprintRadius(ring, center) {
+  let radius=0;
+  for(const point of ring) radius=Math.max(radius,dist2d(point,center));
+  return radius;
+}
+function distanceToFootprint(feature, point) {
+  const ring=feature.geometry.coordinates[0];
+  const center=centroid(ring);
+  return Math.max(0,dist2d(center,point)-footprintRadius(ring,center));
+}
+function boxAround(point, radius) {
+  const lngScale=111320*Math.cos(point[1]*Math.PI/180);
+  return [point[0]-radius/lngScale,point[1]-radius/DEG_LAT,point[0]+radius/lngScale,point[1]+radius/DEG_LAT];
+}
+function boxesIntersect(a,b){return !(a[2]<b[0]||a[0]>b[2]||a[3]<b[1]||a[1]>b[3]);}
+
+const GEOJSON_CACHE = new Map();
+let tileCatalogPromise = null;
+async function loadTileCatalog(){
+  if(!tileCatalogPromise){
+    tileCatalogPromise=fetch("./data/tile-datasets.json",{cache:"no-cache"})
+      .then(r=>r.ok?r.json():null).catch(()=>null);
+  }
+  return tileCatalogPromise;
+}
+async function fetchFeatureCollection(url){
+  if(GEOJSON_CACHE.has(url)) return GEOJSON_CACHE.get(url);
+  const promise=fetch(url,{cache:"no-cache"}).then(r=>{
+    if(!r.ok) throw new Error("HTTP "+r.status);
+    return r.json();
+  });
+  GEOJSON_CACHE.set(url,promise);
+  try{
+    const data=await promise;
+    GEOJSON_CACHE.set(url,data);
+    return data;
+  }catch(e){
+    GEOJSON_CACHE.delete(url);
+    throw e;
+  }
+}
+function featureKey(feature,index){
+  const p=feature.properties||{};
+  if(p.gml_id) return "gml:"+p.gml_id;
+  const ring=feature.geometry&&feature.geometry.coordinates&&feature.geometry.coordinates[0];
+  const first=ring&&ring[0];
+  return first ? `shape:${first[0].toFixed(7)},${first[1].toFixed(7)},${Number(p.height)||0}` : "index:"+index;
+}
+async function loadFeaturesAround(center,radius,seedCollection){
+  const catalog=await loadTileCatalog();
+  const urls=[];
+  const viewBox=boxAround(center,radius);
+  if(catalog&&Array.isArray(catalog.datasets)){
+    for(const dataset of catalog.datasets){
+      if(!boxesIntersect(viewBox,dataset.bbox)) continue;
+      for(const tile of dataset.tiles||[]){
+        if(boxesIntersect(viewBox,tile.bbox)) urls.push(tile.geojson_path);
+      }
+    }
+  }
+  const collections=[seedCollection];
+  const loaded=await Promise.allSettled([...new Set(urls)].map(fetchFeatureCollection));
+  for(const result of loaded) if(result.status==="fulfilled") collections.push(result.value);
+  const unique=new Map();
+  let index=0;
+  for(const collection of collections){
+    for(const feature of collection&&collection.features||[]){
+      unique.set(featureKey(feature,index++),feature);
+    }
+  }
+  return [...unique.values()];
+}
+function chooseNeighborRadius(targetHeight,targetRing,targetCenter,features){
+  const targetDiameter=footprintRadius(targetRing,targetCenter)*2;
+  let maxHeight=targetHeight,tallCount=0;
+  for(const feature of features){
+    if(distanceToFootprint(feature,targetCenter)>PROBE_RADIUS) continue;
+    const height=Number(feature.properties&&feature.properties.height)||3;
+    maxHeight=Math.max(maxHeight,height);
+    if(height>=60) tallCount++;
+  }
+  let radius=BASE_NEIGHBOR_RADIUS;
+  if(targetHeight>=50||targetDiameter>=55||tallCount>=2) radius=280;
+  if(targetHeight>=90||maxHeight>=110||tallCount>=4) radius=380;
+  if(targetHeight>=160||maxHeight>=180||tallCount>=9) radius=480;
+  const heightInfluence=Math.max(targetHeight,maxHeight)*1.9+targetDiameter*0.5;
+  return Math.round(Math.min(MAX_NEIGHBOR_RADIUS,Math.max(radius,heightInfluence))/20)*20;
 }
 function normalizeLod2SurfaceRings(surface){
   if(!Array.isArray(surface) || !surface.length) return [];
@@ -469,9 +604,27 @@ sunLight.shadow.mapSize.set(2048, 2048);
 scene.add(sunLight);
 scene.add(sunLight.target);
 
+let sceneRadius = BASE_NEIGHBOR_RADIUS;
+function updateSceneBounds(radius){
+  sceneRadius=Math.max(BASE_NEIGHBOR_RADIUS,radius);
+  ground.geometry.dispose();
+  ground.geometry=new THREE.PlaneGeometry(sceneRadius*2.5,sceneRadius*2.5);
+  const shadowExtent=sceneRadius*1.2;
+  sunLight.shadow.camera.left=-shadowExtent;
+  sunLight.shadow.camera.right=shadowExtent;
+  sunLight.shadow.camera.top=shadowExtent;
+  sunLight.shadow.camera.bottom=-shadowExtent;
+  sunLight.shadow.camera.far=Math.max(800,sceneRadius*3);
+  sunLight.shadow.camera.updateProjectionMatrix();
+}
+
 // 建物メッシュ作成
 const MAT_TARGET = new THREE.MeshStandardMaterial({ color: 0xff9933, side: THREE.DoubleSide });
 const MAT_NEIGHBOR = new THREE.MeshStandardMaterial({ color: 0x999999, transparent: true, opacity: 0.7, side: THREE.DoubleSide });
+const MAT_FLOOR = new THREE.MeshStandardMaterial({
+  color:0xffd24a,emissive:0x8a4b00,emissiveIntensity:0.28,transparent:true,opacity:0.88,
+  side:THREE.DoubleSide,polygonOffset:true,polygonOffsetFactor:-2,polygonOffsetUnits:-2
+});
 
 function buildMesh(feature, ref, material) {
   const ring = feature.geometry.coordinates[0];
@@ -486,6 +639,28 @@ function buildMesh(feature, ref, material) {
   mesh.castShadow = true;
   mesh.receiveShadow = true;
   return mesh;
+}
+function buildFloorBand(ring,ref,low,high){
+  const pts=ring.map(c=>toLocal(c[0],c[1],ref));
+  const shape=new THREE.Shape();
+  shape.moveTo(pts[0][0],pts[0][1]);
+  for(let i=1;i<pts.length;i++) shape.lineTo(pts[i][0],pts[i][1]);
+  const geom=new THREE.ExtrudeGeometry(shape,{depth:Math.max(0.2,high-low),bevelEnabled:false});
+  const group=new THREE.Group();
+  const mesh=new THREE.Mesh(geom,MAT_FLOOR);
+  mesh.rotation.x=-Math.PI/2;
+  mesh.castShadow=false;
+  mesh.receiveShadow=true;
+  group.add(mesh);
+  const lines=new THREE.LineSegments(
+    new THREE.EdgesGeometry(geom,20),
+    new THREE.LineBasicMaterial({color:0xfff2a8,transparent:true,opacity:0.95})
+  );
+  lines.rotation.x=-Math.PI/2;
+  group.add(lines);
+  group.position.y=low;
+  group.scale.set(1.012,1,1.012);
+  return group;
 }
 function buildLod2Mesh(data, ref, material, lineColor=0x755e48) {
   const vertices = [];
@@ -551,6 +726,83 @@ function frameLod2Target(height, targetX=0, targetZ=0){
   camera.updateProjectionMatrix();
   controls.update();
 }
+function frameSceneContext(height,radius,targetX=0,targetZ=0){
+  const h=Math.max(3,Number(height)||3);
+  const contextDistance=radius>BASE_NEIGHBOR_RADIUS ? radius*1.05 : 0;
+  const distance=Math.max(_entryDistance,h*1.48,contextDistance);
+  const targetY=h*0.38;
+  const horiz=distance*Math.cos(_entryElev);
+  controls.target.set(targetX,targetY,targetZ);
+  camera.position.set(
+    targetX+horiz*Math.sin(_entryBearing),
+    targetY+distance*Math.sin(_entryElev),
+    targetZ+horiz*Math.cos(_entryBearing)
+  );
+  camera.near=Math.max(0.5,distance/1000);
+  camera.far=Math.max(3000,distance*4);
+  camera.updateProjectionMatrix();
+  controls.update();
+}
+
+let targetRingForFloor=null;
+let targetRefForFloor=null;
+let targetHeight=0;
+let targetFootprintRadius=0;
+let floorHighlight=null;
+let floorSelection=null;
+function removeFloorHighlight(){
+  if(!floorHighlight) return;
+  scene.remove(floorHighlight);
+  floorHighlight.traverse(object=>{
+    if(object.geometry) object.geometry.dispose();
+    if(object.material&&object.material!==MAT_FLOOR) object.material.dispose();
+  });
+  floorHighlight=null;
+}
+function clearFloorSelection(){
+  removeFloorHighlight();
+  floorSelection=null;
+  floorResult.textContent="";
+  floorError.textContent="";
+  updateSun();
+}
+function applyFloorSelection(){
+  floorError.textContent="";
+  if(!targetFeature||!targetRingForFloor||!targetRefForFloor||!targetHeight){
+    floorError.textContent="建物データの読み込み完了後に設定してください。";
+    return;
+  }
+  const total=Number(totalFloorsInput.value),floor=Number(targetFloorInput.value);
+  if(!Number.isInteger(total)||total<1||total>200){
+    floorError.textContent="総階数は1〜200の整数で入力してください。";
+    return;
+  }
+  if(!Number.isInteger(floor)||floor<1||floor>total){
+    floorError.textContent=`確認する階は1〜${total}階の範囲で入力してください。`;
+    return;
+  }
+  targetFloorInput.max=String(total);
+  const floorHeight=targetHeight/total;
+  const low=floorHeight*(floor-1),high=floorHeight*floor;
+  removeFloorHighlight();
+  floorHighlight=buildFloorBand(targetRingForFloor,targetRefForFloor,low,high);
+  scene.add(floorHighlight);
+  floorSelection={total,floor,low,high,mid:(low+high)/2};
+  floorResult.textContent=`${floor}階を表示中（推定高さ ${low.toFixed(1)}〜${high.toFixed(1)}m）`;
+  updateSun();
+}
+floorToggle.addEventListener("click",()=>{
+  const open=floorControls.hidden;
+  floorControls.hidden=!open;
+  floorToggle.setAttribute("aria-expanded",String(open));
+  floorToggle.textContent=open?"設定を閉じる":"階別表示を設定";
+  if(open) totalFloorsInput.focus();
+});
+floorApply.addEventListener("click",applyFloorSelection);
+floorClear.addEventListener("click",clearFloorSelection);
+[totalFloorsInput,targetFloorInput].forEach(input=>input.addEventListener("keydown",event=>{
+  if(event.key==="Enter") applyFloorSelection();
+}));
 
 // === データ読み込み & シーン構築 ===
 let targetFeature = null;
@@ -559,9 +811,7 @@ let neighbors = [];   // { feature, cx, cy } in local meters
 async function init() {
   let fc;
   try {
-    const r = await fetch(geojsonUrl);
-    if (!r.ok) throw new Error("HTTP " + r.status);
-    fc = await r.json();
+    fc = await fetchFeatureCollection(geojsonUrl);
   } catch(e) {
     errMsg.textContent = "GeoJSON 読み込み失敗: " + e;
     statusEl.textContent = "データエラー";
@@ -590,22 +840,50 @@ async function init() {
   const tgtRing = lod2Ring || targetFeature.geometry.coordinates[0];
   const tgtC = centroid(tgtRing); // [lng, lat]
   const ref = tgtC; // ローカル座標の原点
+  const tgtH = Number((lod2Data && lod2GeometryHeight(lod2Data)) || targetFeature.properties.height)||3;
+  targetRingForFloor=tgtRing;
+  targetRefForFloor=ref;
+  targetHeight=tgtH;
+  targetFootprintRadius=footprintRadius(tgtRing,tgtC);
+  sunOrigin={lng:tgtC[0],lat:tgtC[1]};
+  const estimatedFloors=Math.max(1,Math.round(tgtH/3));
+  totalFloorsInput.placeholder=`目安: ${estimatedFloors}`;
+  targetFloorInput.max=String(estimatedFloors);
+
+  statusEl.textContent="周辺建物の影響範囲を解析中…";
+  let sceneFeatures;
+  try{
+    const probeFeatures=await loadFeaturesAround(tgtC,PROBE_RADIUS,fc);
+    const adaptiveRadius=chooseNeighborRadius(tgtH,tgtRing,tgtC,probeFeatures);
+    sceneFeatures=adaptiveRadius>PROBE_RADIUS
+      ? await loadFeaturesAround(tgtC,adaptiveRadius,fc)
+      : probeFeatures;
+    updateSceneBounds(adaptiveRadius);
+  }catch(e){
+    sceneFeatures=fc.features||[];
+    updateSceneBounds(BASE_NEIGHBOR_RADIUS);
+  }
 
   // 対象建物のメッシュ
   if(lod2Data){
     scene.add(buildLod2Mesh(lod2Data, ref, MAT_TARGET));
-    frameLod2Target(lod2GeometryHeight(lod2Data) || targetFeature.properties.height);
   } else {
     scene.add(buildMesh(targetFeature, ref, MAT_TARGET));
   }
 
-  // 周辺建物（対象建物の近傍のみ）
+  // 周辺建物（建物高さと周辺密度から自動調整）
   let tallestNeighborLod2 = null;
-  for (const f of fc.features) {
-    if (f === targetFeature || (targetBuildingId && f.properties.gml_id === targetBuildingId)) continue;
+  const neighborCandidates=[];
+  for(const f of sceneFeatures){
+    if(f===targetFeature||(targetBuildingId&&f.properties.gml_id===targetBuildingId)) continue;
+    const edgeDistance=distanceToFootprint(f,tgtC);
+    if(edgeDistance>sceneRadius) continue;
     const c = centroid(f.geometry.coordinates[0]);
-    const d = dist2d(c, tgtC);
-    if (d > NEIGHBOR_RADIUS) continue;
+    neighborCandidates.push({feature:f,center:c,edgeDistance});
+  }
+  neighborCandidates.sort((a,b)=>a.edgeDistance-b.edgeDistance);
+  for (const candidate of neighborCandidates.slice(0,MAX_VISIBLE_NEIGHBORS)) {
+    const f=candidate.feature,c=candidate.center;
     const [lx, ly] = toLocal(c[0], c[1], ref);
     const neighborGmlId = f.properties && f.properties.gml_id;
     const neighborLod2 = BUILTIN_LOD2_URLS[neighborGmlId]
@@ -617,21 +895,20 @@ async function init() {
     if(neighborLod2 && (!tallestNeighborLod2 || neighborHeight > tallestNeighborLod2.height)){
       tallestNeighborLod2 = { height:neighborHeight, x:lx, z:-ly };
     }
-    neighbors.push({ feature: f, cx: lx, cy: ly, height: neighborHeight });
+    neighbors.push({
+      feature:f,cx:lx,cy:ly,height:neighborHeight,
+      footprintRadius:footprintRadius(f.geometry.coordinates[0],c)
+    });
     scene.add(neighborLod2
       ? buildLod2Mesh(neighborLod2, ref, MAT_NEIGHBOR, 0x666666)
       : buildMesh(f, ref, MAT_NEIGHBOR));
   }
-  if(!lod2Data && tallestNeighborLod2){
-    frameLod2Target(
-      tallestNeighborLod2.height,
-      tallestNeighborLod2.x * 0.5,
-      tallestNeighborLod2.z * 0.5
-    );
-  }
+  const frameHeight=Math.max(tgtH,tallestNeighborLod2?tallestNeighborLod2.height:0);
+  const frameX=tallestNeighborLod2?tallestNeighborLod2.x*0.35:0;
+  const frameZ=tallestNeighborLod2?tallestNeighborLod2.z*0.35:0;
+  frameSceneContext(frameHeight,sceneRadius,frameX,frameZ);
 
-  const tgtH = Number((lod2Data && lod2GeometryHeight(lod2Data)) || targetFeature.properties.height)||3;
-  bidEl.textContent = `高さ: ${tgtH.toFixed(1)}m　周辺: ${neighbors.length}棟${lod2Data ? "　PLATEAU LOD2" : ""}`;
+  bidEl.textContent = `高さ: ${tgtH.toFixed(1)}m　周辺: ${neighbors.length}棟　表示範囲: ${sceneRadius}m${lod2Data ? "　PLATEAU LOD2" : ""}`;
   updateSun();
 }
 
@@ -653,7 +930,7 @@ function updateSun() {
   azOut.textContent = sun.sunBearing.toFixed(0) + "°";
 
   // DirectionalLight の位置を太陽方向にセット
-  const R = 400;
+  const R = Math.max(400,sceneRadius*2);
   const azRad = sun.sunBearing * Math.PI / 180;
   const altRad = Math.max(0, sun.altDeg) * Math.PI / 180;
   sunLight.position.set(
@@ -675,14 +952,17 @@ function updateSun() {
   const shadowAzRad = shadowAz * Math.PI / 180;
   const sdx = Math.sin(shadowAzRad), sdy = Math.cos(shadowAzRad);
   const tanAlt = Math.tan(altRad);
+  const referenceHeight=floorSelection?floorSelection.mid:0;
 
   let occluders = [];
   for (const nb of neighbors) {
     const dx = -nb.cx, dy = -nb.cy; // neighbor→target
     const along = dx*sdx + dy*sdy;
     const perp = Math.abs(dx*sdy - dy*sdx);
-    const shadowLen = nb.height / tanAlt;
-    if (along > 0 && along < shadowLen && perp < 40) {
+    const effectiveHeight=Math.max(0,nb.height-referenceHeight);
+    const shadowLen = effectiveHeight / tanAlt;
+    const influenceWidth=Math.max(20,targetFootprintRadius)+(nb.footprintRadius||0);
+    if (effectiveHeight>0 && along > 0 && along < shadowLen && perp < influenceWidth) {
       const azToNb = (Math.atan2(nb.cx, nb.cy) * 180 / Math.PI + 360) % 360;
       occluders.push({ dir: dirName(azToNb), h: nb.height, dist: Math.sqrt(nb.cx*nb.cx+nb.cy*nb.cy) });
     }
@@ -690,10 +970,12 @@ function updateSun() {
 
   if (occluders.length > 0) {
     const top = occluders.sort((a,b)=>b.h-a.h)[0];
-    statusEl.innerHTML = `<b class="occ">遮蔽物あり</b>　${top.dir}方向に高さ${top.h.toFixed(0)}mの建物（約${top.dist.toFixed(0)}m先）<br>`
+    const heading=floorSelection?`${floorSelection.floor}階は遮られる可能性あり`:"遮蔽物あり";
+    statusEl.innerHTML = `<b class="occ">${heading}</b>　${top.dir}方向に高さ${top.h.toFixed(0)}mの建物（約${top.dist.toFixed(0)}m先）<br>`
       + `計${occluders.length}棟が太陽方向に位置しています`;
   } else {
-    statusEl.innerHTML = `<b class="dir">直射の可能性あり</b>　現在の太陽方向（${dirName(sun.sunBearing)}・高度${sun.altDeg.toFixed(0)}°）に`
+    const heading=floorSelection?`${floorSelection.floor}階は日が当たる可能性あり`:"直射の可能性あり";
+    statusEl.innerHTML = `<b class="dir">${heading}</b>　現在の太陽方向（${dirName(sun.sunBearing)}・高度${sun.altDeg.toFixed(0)}°）に`
       + `遮蔽となる建物は見当たりません`;
   }
 }

@@ -177,14 +177,14 @@ input[type=range]{width:100%}
     display:grid;place-items:center;border:2px solid #fff;border-radius:9px;background:#202832;color:#fff;
     font-size:9px;font-weight:750;line-height:1;white-space:nowrap;font-variant-numeric:tabular-nums}
   .floor-quick-badge[hidden]{display:none}
-  .floor-backdrop{position:fixed;inset:0;z-index:9;display:block;background:rgba(8,13,18,.36);
-    -webkit-backdrop-filter:blur(2px);backdrop-filter:blur(2px)}
+  .floor-backdrop{position:fixed;inset:0;z-index:9;display:block;background:rgba(8,13,18,.16)}
   .floor-backdrop[hidden]{display:none}
   body>#floorSection{position:fixed;left:0;right:0;bottom:0;z-index:10;display:block;margin:0;
     max-height:min(54dvh,390px);padding:18px 16px calc(16px + env(safe-area-inset-bottom));overflow:auto;
     border:1px solid #303943;border-width:1px 0 0;border-radius:12px 12px 0 0;
     background:rgba(19,25,32,.99);box-shadow:0 -10px 32px rgba(10,17,23,.28);overscroll-behavior:contain}
   body>#floorSection[hidden]{display:none}
+  body>#floorSection:focus{outline:none}
   body>#floorSection .floor-heading strong{font-size:16px}
   body>#floorSection .floor-toggle{position:relative;width:40px;height:40px;min-height:40px;padding:0;
     border:0;background:#202832;color:transparent;font-size:0}
@@ -271,7 +271,7 @@ input[type=range]{width:100%}
   <div id="bid"></div>
   <div id="errMsg"></div>
   <div id="floorHome">
-  <section id="floorSection" class="floor-section" aria-labelledby="floorHeading">
+  <section id="floorSection" class="floor-section" aria-labelledby="floorHeading" tabindex="-1">
     <div class="floor-heading">
       <strong id="floorHeading">階別の日当たり</strong>
       <button id="floorToggle" class="floor-toggle" type="button" aria-expanded="false" aria-controls="floorControls">階別表示を設定</button>
@@ -368,7 +368,7 @@ function openMobileFloorPanel(){
   floorBackdrop.hidden=false;
   floorQuick.setAttribute("aria-expanded","true");
   setFloorControlsOpen(true);
-  requestAnimationFrame(()=>totalFloorsInput.focus());
+  requestAnimationFrame(()=>floorSection.focus({preventScroll:true}));
 }
 function syncFloorPlacement(){
   if(mobileLayout.matches){

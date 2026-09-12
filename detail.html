@@ -69,6 +69,7 @@ input[type=range]{width:100%}
 .floor-actions .floor-apply{background:#ffb53d;border-color:#ffb53d;color:#1a1205}
 .floor-result{min-height:1.4em;margin-top:8px;color:#ffca67;font-size:11px;line-height:1.45}
 .floor-error{min-height:1.4em;margin-top:5px;color:#ff8a8a;font-size:11px}
+.floor-quick,.floor-backdrop{display:none}
 #compass{position:absolute;top:14px;right:14px;z-index:4;width:56px;height:56px;border-radius:50%;
   background:rgba(255,255,255,.86);border:1px solid rgba(20,28,35,.22);display:grid;place-items:center;
   color:#1b2730;font-size:11px;font-weight:700;box-shadow:0 3px 12px rgba(0,0,0,.18)}
@@ -159,6 +160,43 @@ input[type=range]{width:100%}
   #compassNeedle::after{top:-3px;left:-4px;border-left-width:5px;border-right-width:5px;
     border-bottom:10px solid #df4b3f}
   #compass span{position:absolute;left:0;right:0;bottom:3px;margin:0;color:var(--mobile-muted);font-size:9px;line-height:1;text-align:center}
+  .floor-quick{position:fixed;top:calc(70px + env(safe-area-inset-top));right:16px;z-index:7;width:44px;height:44px;
+    display:grid;place-items:center;padding:0;border:1px solid rgba(18,32,42,.08);border-radius:10px;
+    background:rgba(255,255,255,.97);color:var(--mobile-ink);box-shadow:0 4px 14px rgba(14,25,33,.18);
+    backdrop-filter:blur(10px);cursor:pointer;touch-action:manipulation}
+  .floor-quick:active{transform:translateY(1px)}
+  .floor-quick:focus{outline:none}
+  .floor-quick:focus-visible{box-shadow:0 0 0 3px rgba(246,165,36,.38),0 4px 14px rgba(14,25,33,.18)}
+  .floor-quick.active{border-color:#e69616;background:var(--mobile-accent);color:#1b160d}
+  .floor-quick-icon{position:relative;width:21px;height:18px;border:2px solid currentColor;border-radius:3px}
+  .floor-quick-icon::before,.floor-quick-icon::after{content:"";position:absolute;left:3px;right:3px;height:2px;
+    border-radius:2px;background:currentColor}
+  .floor-quick-icon::before{top:4px}
+  .floor-quick-icon::after{bottom:4px}
+  .floor-quick-badge{position:absolute;right:-6px;bottom:-7px;min-width:25px;height:17px;padding:0 4px;
+    display:grid;place-items:center;border:2px solid #fff;border-radius:9px;background:#202832;color:#fff;
+    font-size:9px;font-weight:750;line-height:1;white-space:nowrap;font-variant-numeric:tabular-nums}
+  .floor-quick-badge[hidden]{display:none}
+  .floor-backdrop{position:fixed;inset:0;z-index:9;display:block;background:rgba(8,13,18,.36);
+    -webkit-backdrop-filter:blur(2px);backdrop-filter:blur(2px)}
+  .floor-backdrop[hidden]{display:none}
+  body>#floorSection{position:fixed;left:0;right:0;bottom:0;z-index:10;display:block;margin:0;
+    max-height:min(54dvh,390px);padding:18px 16px calc(16px + env(safe-area-inset-bottom));overflow:auto;
+    border:1px solid #303943;border-width:1px 0 0;border-radius:12px 12px 0 0;
+    background:rgba(19,25,32,.99);box-shadow:0 -10px 32px rgba(10,17,23,.28);overscroll-behavior:contain}
+  body>#floorSection[hidden]{display:none}
+  body>#floorSection .floor-heading strong{font-size:16px}
+  body>#floorSection .floor-toggle{position:relative;width:40px;height:40px;min-height:40px;padding:0;
+    border:0;background:#202832;color:transparent;font-size:0}
+  body>#floorSection .floor-toggle::before,body>#floorSection .floor-toggle::after{content:"";position:absolute;
+    top:19px;left:11px;width:18px;height:2px;border-radius:2px;background:#dbe2e8}
+  body>#floorSection .floor-toggle::before{transform:rotate(45deg)}
+  body>#floorSection .floor-toggle::after{transform:rotate(-45deg)}
+  body>#floorSection .floor-controls{margin-top:14px}
+  body>#floorSection .floor-inputs{gap:10px}
+  body>#floorSection .floor-actions{margin-top:12px}
+  body>#floorSection .floor-result{font-size:12px}
+  body>#floorSection .notes{margin-top:8px;padding-top:8px}
   #mobileTimeline{height:128px;margin:0 -16px;padding:17px 16px 12px;border:0;
     background:var(--mobile-sheet);cursor:ns-resize}
   #mobileTimeline::before{width:42px;height:4px;margin:-10px auto 10px;background:#74808d}
@@ -187,6 +225,10 @@ input[type=range]{width:100%}
 <body>
 <canvas id="c"></canvas>
 <div id="compass" title="北方向"><div id="compassNeedle"></div><span>N</span></div>
+<button id="floorQuick" class="floor-quick" type="button" aria-label="階別表示を設定" aria-controls="floorSection" aria-expanded="false">
+  <span class="floor-quick-icon" aria-hidden="true"></span><span id="floorQuickBadge" class="floor-quick-badge" hidden></span>
+</button>
+<div id="floorBackdrop" class="floor-backdrop" hidden></div>
 <a class="mobile-back" href="index.html?restore=1" aria-label="地図に戻る"></a>
 <div id="panel">
   <div id="mobileTimeline" aria-label="時刻設定">
@@ -228,7 +270,8 @@ input[type=range]{width:100%}
   <div id="status">読み込み中…</div>
   <div id="bid"></div>
   <div id="errMsg"></div>
-  <section class="floor-section" aria-labelledby="floorHeading">
+  <div id="floorHome">
+  <section id="floorSection" class="floor-section" aria-labelledby="floorHeading">
     <div class="floor-heading">
       <strong id="floorHeading">階別の日当たり</strong>
       <button id="floorToggle" class="floor-toggle" type="button" aria-expanded="false" aria-controls="floorControls">階別表示を設定</button>
@@ -249,9 +292,10 @@ input[type=range]{width:100%}
       <div id="floorResult" class="floor-result" aria-live="polite"></div>
       <div id="floorError" class="floor-error" aria-live="polite"></div>
     </div>
+    <div class="notes">
+      ※ 階別表示は建物の高さを総階数で等分した推定です。実際の階高、住戸位置、窓の方向は反映していません。
+    </div>
   </section>
-  <div class="notes">
-    ※ 階別表示は建物の高さを総階数で等分した推定です。実際の階高、住戸位置、窓の方向は反映していません。
   </div>
   </div>
 </div>
@@ -281,6 +325,8 @@ const compassNeedle = el("compassNeedle");
 const panel = el("panel"), panelToggle = el("panelToggle");
 const mobileTime = el("mobileTime"), mobileTimeLabel = el("mobileTimeLabel");
 const mobileTimeline = el("mobileTimeline"), mobileSheetToggle = el("mobileSheetToggle");
+const floorQuick = el("floorQuick"), floorQuickBadge = el("floorQuickBadge");
+const floorBackdrop = el("floorBackdrop"), floorHome = el("floorHome"), floorSection = el("floorSection");
 const floorToggle = el("floorToggle"), floorControls = el("floorControls");
 const totalFloorsInput = el("totalFloors"), targetFloorInput = el("targetFloor");
 const floorApply = el("floorApply"), floorClear = el("floorClear");
@@ -295,15 +341,63 @@ function setPanelCollapsed(collapsed){
   panelToggle.setAttribute("aria-expanded",String(!collapsed));
 }
 
+const mobileLayout = matchMedia("(max-width: 600px)");
+function setFloorControlsOpen(open){
+  floorControls.hidden=!open;
+  floorToggle.setAttribute("aria-expanded",String(open));
+  floorToggle.setAttribute("aria-label",open?"階別設定を閉じる":"階別表示を設定");
+  floorToggle.textContent=open?"設定を閉じる":"階別表示を設定";
+}
+function closeMobileFloorPanel({restoreFocus=false}={}){
+  floorSection.classList.remove("mobile-open");
+  floorQuick.setAttribute("aria-expanded","false");
+  floorBackdrop.hidden=true;
+  if(mobileLayout.matches){
+    floorSection.hidden=true;
+    setFloorControlsOpen(false);
+  }
+  if(restoreFocus) floorQuick.focus();
+}
+function openMobileFloorPanel(){
+  if(!mobileLayout.matches) return;
+  setPanelCollapsed(true);
+  floorSection.hidden=false;
+  floorSection.classList.add("mobile-open");
+  floorSection.setAttribute("role","dialog");
+  floorSection.setAttribute("aria-modal","true");
+  floorBackdrop.hidden=false;
+  floorQuick.setAttribute("aria-expanded","true");
+  setFloorControlsOpen(true);
+  requestAnimationFrame(()=>totalFloorsInput.focus());
+}
+function syncFloorPlacement(){
+  if(mobileLayout.matches){
+    if(floorSection.parentElement!==document.body) document.body.appendChild(floorSection);
+    floorSection.setAttribute("role","dialog");
+    floorSection.setAttribute("aria-modal","true");
+    closeMobileFloorPanel();
+  }else{
+    floorBackdrop.hidden=true;
+    floorSection.hidden=false;
+    floorSection.classList.remove("mobile-open");
+    floorSection.removeAttribute("role");
+    floorSection.removeAttribute("aria-modal");
+    floorQuick.setAttribute("aria-expanded","false");
+    if(floorSection.parentElement!==floorHome) floorHome.appendChild(floorSection);
+  }
+}
+
 panelToggle.addEventListener("click",()=>{
   setPanelCollapsed(!panel.classList.contains("panel-collapsed"));
 });
 mobileSheetToggle.addEventListener("click",()=>{
   setPanelCollapsed(!panel.classList.contains("panel-collapsed"));
 });
-if(matchMedia("(max-width: 600px)").matches){
+if(mobileLayout.matches){
   setPanelCollapsed(true);
 }
+syncFloorPlacement();
+mobileLayout.addEventListener?.("change",syncFloorPlacement);
 
 let sheetStart=null;
 mobileTimeline.addEventListener("pointerdown",event=>{
@@ -764,22 +858,30 @@ function clearFloorSelection(){
   floorSelection=null;
   floorResult.textContent="";
   floorError.textContent="";
+  syncFloorQuickState();
   updateSun();
+}
+function syncFloorQuickState(){
+  const active=Boolean(floorSelection);
+  floorQuick.classList.toggle("active",active);
+  floorQuickBadge.hidden=!active;
+  floorQuickBadge.textContent=active?`${floorSelection.floor}階`:"";
+  floorQuick.setAttribute("aria-label",active?`${floorSelection.floor}階を表示中。階別設定を変更`:"階別表示を設定");
 }
 function applyFloorSelection(){
   floorError.textContent="";
   if(!targetFeature||!targetRingForFloor||!targetRefForFloor||!targetHeight){
     floorError.textContent="建物データの読み込み完了後に設定してください。";
-    return;
+    return false;
   }
   const total=Number(totalFloorsInput.value),floor=Number(targetFloorInput.value);
   if(!Number.isInteger(total)||total<1||total>200){
     floorError.textContent="総階数は1〜200の整数で入力してください。";
-    return;
+    return false;
   }
   if(!Number.isInteger(floor)||floor<1||floor>total){
     floorError.textContent=`確認する階は1〜${total}階の範囲で入力してください。`;
-    return;
+    return false;
   }
   targetFloorInput.max=String(total);
   const floorHeight=targetHeight/total;
@@ -789,19 +891,36 @@ function applyFloorSelection(){
   scene.add(floorHighlight);
   floorSelection={total,floor,low,high,mid:(low+high)/2};
   floorResult.textContent=`${floor}階を表示中（推定高さ ${low.toFixed(1)}〜${high.toFixed(1)}m）`;
+  syncFloorQuickState();
   updateSun();
+  return true;
 }
 floorToggle.addEventListener("click",()=>{
+  if(mobileLayout.matches){
+    closeMobileFloorPanel({restoreFocus:true});
+    return;
+  }
   const open=floorControls.hidden;
-  floorControls.hidden=!open;
-  floorToggle.setAttribute("aria-expanded",String(open));
-  floorToggle.textContent=open?"設定を閉じる":"階別表示を設定";
+  setFloorControlsOpen(open);
   if(open) totalFloorsInput.focus();
 });
-floorApply.addEventListener("click",applyFloorSelection);
-floorClear.addEventListener("click",clearFloorSelection);
+floorQuick.addEventListener("click",()=>{
+  if(floorSection.classList.contains("mobile-open")) closeMobileFloorPanel({restoreFocus:true});
+  else openMobileFloorPanel();
+});
+floorBackdrop.addEventListener("click",()=>closeMobileFloorPanel({restoreFocus:true}));
+document.addEventListener("keydown",event=>{
+  if(event.key==="Escape"&&floorSection.classList.contains("mobile-open")) closeMobileFloorPanel({restoreFocus:true});
+});
+floorApply.addEventListener("click",()=>{
+  if(applyFloorSelection()&&mobileLayout.matches) closeMobileFloorPanel({restoreFocus:true});
+});
+floorClear.addEventListener("click",()=>{
+  clearFloorSelection();
+  if(mobileLayout.matches) closeMobileFloorPanel({restoreFocus:true});
+});
 [totalFloorsInput,targetFloorInput].forEach(input=>input.addEventListener("keydown",event=>{
-  if(event.key==="Enter") applyFloorSelection();
+  if(event.key==="Enter"&&applyFloorSelection()&&mobileLayout.matches) closeMobileFloorPanel({restoreFocus:true});
 }));
 
 // === データ読み込み & シーン構築 ===

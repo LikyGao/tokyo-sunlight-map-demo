@@ -729,7 +729,7 @@ function frameLod2Target(height, targetX=0, targetZ=0){
 function frameSceneContext(height,radius,targetX=0,targetZ=0){
   const h=Math.max(3,Number(height)||3);
   const contextDistance=radius>BASE_NEIGHBOR_RADIUS ? radius*1.05 : 0;
-  const distance=Math.max(_entryDistance,h*1.48,contextDistance);
+  const distance=Math.max(_entryDistance,h*1.9,contextDistance);
   const targetY=h*0.38;
   const horiz=distance*Math.cos(_entryElev);
   controls.target.set(targetX,targetY,targetZ);
@@ -855,6 +855,7 @@ async function init() {
     ? buildLod2Mesh(lod2Data,ref,MAT_TARGET)
     : buildMesh(targetFeature,ref,MAT_TARGET));
   frameSceneContext(tgtH,BASE_NEIGHBOR_RADIUS);
+  updateSun();
 
   statusEl.textContent="周辺建物の影響範囲を解析中…";
   let sceneFeatures;

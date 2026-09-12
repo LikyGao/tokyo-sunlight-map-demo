@@ -850,6 +850,12 @@ async function init() {
   totalFloorsInput.placeholder=`目安: ${estimatedFloors}`;
   targetFloorInput.max=String(estimatedFloors);
 
+  // 対象建物は先に表示し、周辺データは背景で読み込む。
+  scene.add(lod2Data
+    ? buildLod2Mesh(lod2Data,ref,MAT_TARGET)
+    : buildMesh(targetFeature,ref,MAT_TARGET));
+  frameSceneContext(tgtH,BASE_NEIGHBOR_RADIUS);
+
   statusEl.textContent="周辺建物の影響範囲を解析中…";
   let sceneFeatures;
   try{
@@ -862,13 +868,6 @@ async function init() {
   }catch(e){
     sceneFeatures=fc.features||[];
     updateSceneBounds(BASE_NEIGHBOR_RADIUS);
-  }
-
-  // 対象建物のメッシュ
-  if(lod2Data){
-    scene.add(buildLod2Mesh(lod2Data, ref, MAT_TARGET));
-  } else {
-    scene.add(buildMesh(targetFeature, ref, MAT_TARGET));
   }
 
   // 周辺建物（建物高さと周辺密度から自動調整）

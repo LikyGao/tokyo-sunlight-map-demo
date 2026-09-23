@@ -7,7 +7,9 @@ function createFacadeTintLayer(onError) {
   void main(){ vec2 p=vec2((gl_VertexID<<1)&2,gl_VertexID&2); gl_Position=vec4(p*2.0-1.0,0.0,1.0); }`;
   const fragment=`#version 300 es
   precision highp float;
-  uniform sampler2D uDepth,uMask;
+  // Sampler precision controls texture results independently of float precision.
+  uniform highp sampler2D uDepth;
+  uniform lowp sampler2D uMask;
   uniform bool uUseMask;
   uniform vec2 uSize,uRange,uFloor;
   uniform mat4 uInverse;
@@ -17,12 +19,14 @@ function createFacadeTintLayer(onError) {
   out vec4 color;
   void main(){
     vec2 uv=gl_FragCoord.xy/uSize;
-    if(uUseMask&&texture(uMask,vec2(uv.x,1.0-uv.y)).r<0.5)discard;
     float d=texture(uDepth,uv).r;
-    if(d>=0.9999999)discard;
     vec4 h=uInverse*vec4(uv*2.0-1.0,2.0*(d-uRange.x)/(uRange.y-uRange.x)-1.0,1.0);
     vec3 p=h.xyz/h.w;
     vec3 normal=normalize(cross(dFdx(p),dFdy(p)));
+    // Derivatives must run for the whole fragment quad before any discard.
+    float feather=max(fwidth(p.z),0.02);
+    if(uUseMask&&texture(uMask,vec2(uv.x,1.0-uv.y)).r<0.5)discard;
+    if(d>=0.9999999)discard;
     if(p.z<uHeight.x-0.5||p.z>uHeight.y+0.5)discard;
     bool inside=false;float distanceToEdge=1e20;
     for(int i=0;i<128;i++){
@@ -38,7 +42,6 @@ function createFacadeTintLayer(onError) {
     if(!uUseMask&&!inside&&distanceToEdge>2.5)discard;
     if(uMode==1){
       if(p.z<uFloor.x||p.z>=uFloor.y||abs(normal.z)>0.8)discard;
-      float feather=max(fwidth(p.z),0.02);
       float coverage=smoothstep(uFloor.x,uFloor.x+feather,p.z)*(1.0-smoothstep(uFloor.y-feather,uFloor.y,p.z));
       color=vec4(mix(vec3(1.0),vec3(1.0,0.64,0.10),coverage),1.0);
     }else{discard;}

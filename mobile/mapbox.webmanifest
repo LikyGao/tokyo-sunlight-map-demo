@@ -1,0 +1,16 @@
+{
+  "id": "./mapbox-demo.html",
+  "name": "日当たりマップ",
+  "short_name": "日当たりマップ",
+  "lang": "ja",
+  "start_url": "./mapbox-demo.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#ffffff",
+  "icons": [
+    { "src": "./assets/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "./assets/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "./assets/icons/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
